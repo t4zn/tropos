@@ -9,6 +9,12 @@ export default function Navigation() {
   const pathname = usePathname();
   const isInsatPage = pathname === "/insat";
   const [isOverDark, setIsOverDark] = useState<boolean>(isInsatPage);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  // Close mobile menu whenever the route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     // Synchronize html and body backgrounds for elastic overscroll / rubber-banding
@@ -80,18 +86,7 @@ export default function Navigation() {
         width: "100%",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1024px",
-          margin: "0 auto",
-          height: "100%",
-          padding: "0 24px",
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+      <div className="nav-header-container">
         {/* Left: Clean Brand Wordmark */}
         <Link
           href="/"
@@ -102,6 +97,7 @@ export default function Navigation() {
             textDecoration: "none",
             color: "inherit",
             zIndex: 2,
+            flexShrink: 0,
           }}
         >
           <Image
@@ -128,17 +124,8 @@ export default function Navigation() {
           </span>
         </Link>
 
-        {/* Center: Exactly Centered Translucent Navigation Links */}
-        <nav
-          style={{
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: "28px",
-            alignItems: "center",
-          }}
-        >
+        {/* Center / Track: Centered on PC (Desktop Only) */}
+        <nav className="nav-links-track desktop-only-nav">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const darkClass = isOverDark ? "dark" : "";
@@ -155,9 +142,45 @@ export default function Navigation() {
           })}
         </nav>
 
-        {/* Right: Invisible Spacer for Exact Visual Balance */}
-        <div style={{ width: "68px", zIndex: 1 }} aria-hidden="true" />
+        {/* Right on PC: Spacer for exact visual balance */}
+        <div className="nav-spacer desktop-only-nav" style={{ width: "68px", zIndex: 1 }} aria-hidden="true" />
+
+        {/* Right on Mobile: Apple Minimalist Morphing Hamburger Button */}
+        <button
+          type="button"
+          className="mobile-hamburger-btn"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={isMobileMenuOpen}
+        >
+          <div className={`hamburger-icon ${isMobileMenuOpen ? "open" : ""} ${isOverDark ? "dark" : ""}`}>
+            <span className="line line-top" />
+            <span className="line line-bottom" />
+          </div>
+        </button>
       </div>
+
+      {/* Mobile Full-Width Frosted Glass Dropdown */}
+      {isMobileMenuOpen && (
+        <div className={`mobile-nav-dropdown ${isOverDark ? "dark" : ""}`}>
+          <div className="mobile-nav-links">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`mobile-nav-link ${isActive ? "active" : ""}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span>{item.label}</span>
+                  {isActive && <span className="active-dot">&bull;</span>}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

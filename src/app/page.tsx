@@ -43,14 +43,7 @@ export default function HomePage() {
               Fusing ISRO geostationary telemetry with edge citizen radiometry.
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: "var(--spacing-md)",
-                marginBottom: "var(--spacing-section)",
-              }}
-            >
+            <div className="hero-button-group">
               <Link href="/corridor" className="button-primary">
                 Explore Corridor Map
               </Link>
