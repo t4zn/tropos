@@ -19,10 +19,6 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Tropos — Atmospheric Intelligence & Climate Action",
   description: "A federated, hyper-local climate action platform fusing ISRO geostationary telemetry with edge citizen radiometry.",
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
 };
 
 export default function RootLayout({
