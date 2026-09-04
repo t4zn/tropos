@@ -14,10 +14,10 @@ export default function Footer({ isDark }: FooterProps) {
   const darkMode = isDark !== undefined ? isDark : pathname === "/insat";
 
   const footerLinks = [
+    { label: "Corridor", href: "/corridor" },
     { label: "Attribution", href: "/attribution" },
     { label: "INSAT", href: "/insat" },
     { label: "Radiometry", href: "/radiometry" },
-    { label: "Corridor", href: "/corridor" },
     { label: "Federation", href: "/federation" },
   ];
 

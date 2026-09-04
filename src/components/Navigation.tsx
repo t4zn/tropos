@@ -62,10 +62,10 @@ export default function Navigation() {
   }, [isInsatPage]);
 
   const navItems = [
+    { label: "Corridor", href: "/corridor" },
     { label: "Attribution", href: "/attribution" },
     { label: "INSAT", href: "/insat" },
     { label: "Radiometry", href: "/radiometry" },
-    { label: "Corridor", href: "/corridor" },
     { label: "Federation", href: "/federation" },
   ];
 
