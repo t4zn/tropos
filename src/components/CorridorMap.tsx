@@ -53,6 +53,8 @@ interface CorridorMapProps {
   candidates?: Array<{ id: string; lat: number; lng: number; name: string }>;
   highlightedSourceId?: string | null;
   onMapReady?: (map: import("leaflet").Map) => void;
+  geeLayer?: "none" | "s5p-aai" | "s5p-no2";
+  onGeeLayerChange?: (layer: "none" | "s5p-aai" | "s5p-no2") => void;
 }
 
 export default function CorridorMap({
@@ -66,14 +68,18 @@ export default function CorridorMap({
   candidates,
   highlightedSourceId,
   onMapReady,
+  geeLayer = "none",
+  onGeeLayerChange,
 }: CorridorMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const markersRef = useRef<import("leaflet").Marker[]>([]);
+  const geeLayersRef = useRef<import("leaflet").Layer[]>([]);
 
   // States
   const [mapReady, setMapReady] = useState(false);
   const [hoveredStation, setHoveredStation] = useState<CorridorStation | null>(null);
+  const [activeGeeLayer, setActiveGeeLayer] = useState<"none" | "s5p-aai" | "s5p-no2">(geeLayer);
 
   const activeStation = hoveredStation || selectedStation;
 
@@ -279,6 +285,73 @@ export default function CorridorMap({
     };
   }, [mapReady, particlePaths, envelope, candidates, highlightedSourceId, stations, onMapReady]);
 
+  // ─── 5. Render Google Earth Engine (GEE) Sentinel-5P Layers ──────────────
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !L) return;
+    const map = mapInstanceRef.current;
+    const leaflet = L;
+
+    // Clear previous GEE layers
+    geeLayersRef.current.forEach((layer) => map.removeLayer(layer));
+    geeLayersRef.current = [];
+
+    if (activeGeeLayer === "none") return;
+
+    // Dynamically import GEE data
+    import("@/lib/earthEngine").then(({ getGeeHarmonizationData }) => {
+      const geeData = getGeeHarmonizationData();
+
+      geeData.gridCells.forEach((cell) => {
+        const isAai = activeGeeLayer === "s5p-aai";
+        const val = isAai ? cell.aai : cell.no2TroposphericMolM2;
+
+        // Color coding matching Copernicus Sentinel-5P palettes
+        let fillColor = "#ffd000";
+        if (isAai) {
+          fillColor = cell.aai > 3.5 ? "#be123c" : cell.aai > 2.5 ? "#f97316" : "#eab308";
+        } else {
+          fillColor = cell.no2TroposphericMolM2 > 65 ? "#7c3aed" : cell.no2TroposphericMolM2 > 45 ? "#2563eb" : "#06b6d4";
+        }
+
+        // Create 3.5km TROPOMI satellite resolution footprint
+        const circle = leaflet.circle([cell.lat, cell.lng], {
+          radius: 3800,
+          color: fillColor,
+          fillColor: fillColor,
+          fillOpacity: 0.28,
+          weight: 1.5,
+          dashArray: "4, 4",
+        }).addTo(map);
+
+        circle.bindTooltip(
+          `<div style="font-family: var(--font-inter, sans-serif); padding: 4px 6px;">
+            <div style="font-size: 10px; font-weight: 700; color: #2563eb; text-transform: uppercase;">Google Earth Engine • S5P</div>
+            <div style="font-size: 12px; font-weight: 600; color: #ffffff; margin: 2px 0;">${cell.label}</div>
+            <div style="font-size: 11px; color: #cbd5e1;">
+              ${isAai ? `Absorbing Aerosol Index: <b>${cell.aai.toFixed(2)}</b>` : `Tropospheric NO₂: <b>${cell.no2TroposphericMolM2.toFixed(1)} µmol/m²</b>`}
+            </div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+              MODIS AOD: ${cell.opticalDepthModis.toFixed(2)} · Inversion Lid: ${cell.pblHeightM}m
+            </div>
+          </div>`,
+          { className: "tropos-tooltip", sticky: true }
+        );
+
+        geeLayersRef.current.push(circle);
+      });
+    });
+
+    return () => {
+      geeLayersRef.current.forEach((layer) => map.removeLayer(layer));
+      geeLayersRef.current = [];
+    };
+  }, [activeGeeLayer, mapReady]);
+
+  const handleLayerSwitch = (newLayer: "none" | "s5p-aai" | "s5p-no2") => {
+    setActiveGeeLayer(newLayer);
+    if (onGeeLayerChange) onGeeLayerChange(newLayer);
+  };
+
   return (
     <div
       style={{
@@ -295,6 +368,110 @@ export default function CorridorMap({
         ref={mapContainerRef}
         style={{ width: "100%", height: "100%", zIndex: 1 }}
       />
+
+      {/* ── TOP-LEFT: Google Earth Engine Orbital Telemetry Badge ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "16px",
+          left: "16px",
+          zIndex: 10,
+          backgroundColor: "rgba(18, 18, 20, 0.82)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderRadius: "9999px",
+          padding: "6px 14px",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          color: "#ffffff",
+          fontSize: "12px",
+          fontWeight: 500,
+          pointerEvents: "none",
+        }}
+      >
+        <span
+          style={{
+            width: "7px",
+            height: "7px",
+            borderRadius: "50%",
+            backgroundColor: "#22c55e",
+            boxShadow: "0 0 8px #22c55e",
+          }}
+        />
+        <span>Google Earth Engine &bull; Sentinel-5P TROPOMI</span>
+      </div>
+
+      {/* ── TOP-RIGHT: Google Earth Engine Layer Switcher ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "16px",
+          right: "16px",
+          zIndex: 10,
+          backgroundColor: "rgba(18, 18, 20, 0.85)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderRadius: "12px",
+          padding: "4px",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          display: "flex",
+          gap: "4px",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => handleLayerSwitch("none")}
+          style={{
+            background: activeGeeLayer === "none" ? "#0066cc" : "transparent",
+            color: activeGeeLayer === "none" ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+            border: "none",
+            borderRadius: "8px",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Ground Stations
+        </button>
+        <button
+          type="button"
+          onClick={() => handleLayerSwitch("s5p-aai")}
+          style={{
+            background: activeGeeLayer === "s5p-aai" ? "#0066cc" : "transparent",
+            color: activeGeeLayer === "s5p-aai" ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+            border: "none",
+            borderRadius: "8px",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          GEE S5P Aerosols (AAI)
+        </button>
+        <button
+          type="button"
+          onClick={() => handleLayerSwitch("s5p-no2")}
+          style={{
+            background: activeGeeLayer === "s5p-no2" ? "#0066cc" : "transparent",
+            color: activeGeeLayer === "s5p-no2" ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+            border: "none",
+            borderRadius: "8px",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          GEE S5P NO₂
+        </button>
+      </div>
 
       {/* ── BOTTOM-CENTER: Quick Station Card ── */}
       {activeStation && (

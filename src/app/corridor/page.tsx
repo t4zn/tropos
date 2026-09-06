@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCorridorData } from "@/hooks/useCorridorData";
 import type { CorridorStation } from "@/types/corridor";
+import { getGeeOrbitalAnchorForCoordinate } from "@/lib/earthEngine";
 
 // Dynamic import to avoid SSR issues with Leaflet
 const CorridorMap = dynamic(() => import("@/components/CorridorMap"), {
@@ -53,6 +54,7 @@ function statusColor(status: CorridorStation["status"]): string {
 export default function CorridorPage() {
   const { stations, wind, isLoading, error, lastUpdated, refetch } = useCorridorData();
   const [selectedStation, setSelectedStation] = useState<CorridorStation | null>(null);
+  const [geeLayer, setGeeLayer] = useState<"none" | "s5p-aai" | "s5p-no2">("none");
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -413,6 +415,8 @@ export default function CorridorPage() {
                   onSelectStation={setSelectedStation}
                   wind={wind}
                   isLive={!error}
+                  geeLayer={geeLayer}
+                  onGeeLayerChange={setGeeLayer}
                 />
               )}
             </div>
@@ -513,6 +517,36 @@ export default function CorridorPage() {
                   <MetricCell label="Temperature" value={`${selectedStation.temperature}`} unit="°C" />
                   <MetricCell label="Humidity" value={`${selectedStation.humidity}`} unit="%" />
                 </div>
+
+                {/* Google Earth Engine (GEE) Orbital Anchor */}
+                {(() => {
+                  const gee = getGeeOrbitalAnchorForCoordinate(selectedStation.lat, selectedStation.lng);
+                  return (
+                    <div
+                      style={{
+                        marginTop: "16px",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        backgroundColor: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#2563eb", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                          Google Earth Engine Anchor
+                        </span>
+                        <span style={{ fontSize: "10px", color: "#16a34a", fontWeight: 600 }}>● S5P TROPOMI L3</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#1e293b", fontWeight: 500 }}>
+                        <span>Orbital AOD: <b>{gee.orbitalAod.toFixed(2)}</b></span>
+                        <span>Aerosol Index: <b>+{gee.aai.toFixed(2)}</b></span>
+                      </div>
+                      <div style={{ fontSize: "10px", color: "#64748b", marginTop: "4px" }}>
+                        Calibrated at {gee.distanceKm}km ({gee.nearestCellLabel})
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Observation time */}
                 {selectedStation.observationTime && (

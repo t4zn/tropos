@@ -5,6 +5,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { type CorridorStation, type CorridorApiResponse } from "@/types/corridor";
+import { getGeeStateAudit } from "@/lib/earthEngine";
 
 // ─── State Node Definitions ──────────────────────────────────────────────────
 
@@ -545,6 +546,64 @@ export default function FederationPage() {
                 </div>
               </div>
             </div>
+
+            {/* Google Earth Engine Sovereign Air-Shed Verification Panel */}
+            {(() => {
+              const codeMap: Record<string, "DEL" | "HAR" | "UP" | "PUN"> = {
+                delhi: "DEL",
+                haryana: "HAR",
+                up: "UP",
+                punjab: "PUN",
+              };
+              const audit = getGeeStateAudit(codeMap[activeNode.id] || "DEL");
+              return (
+                <div
+                  style={{
+                    padding: "18px 20px",
+                    borderRadius: "var(--rounded-md)",
+                    backgroundColor: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    marginBottom: "var(--spacing-xl)",
+                  }}
+                >
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#16a34a" }} />
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Google Earth Engine &bull; Sovereign Orbital Verification
+                      </span>
+                    </div>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: "#16a34a", backgroundColor: "rgba(22, 163, 74, 0.1)", padding: "3px 10px", borderRadius: "9999px" }}>
+                      {audit.status}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "12px" }}>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>GEE Zonal Mean (AAI)</div>
+                      <div style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a" }}>+{audit.zonalMeanAai.toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>Transboundary Flux</div>
+                      <div style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a" }}>{audit.transboundaryFluxTonsDay} <span style={{ fontSize: "12px", fontWeight: 400, color: "#64748b" }}>tons/day</span></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>Inversion Ceiling Lid</div>
+                      <div style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a" }}>{audit.pblCeilingM}m</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>Orbital Concordance</div>
+                      <div style={{ fontSize: "20px", fontWeight: 700, color: "#16a34a" }}>{audit.orbitalConcordance}%</div>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: "11px", color: "#64748b", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #e2e8f0", paddingTop: "8px" }}>
+                    <span>Zonal Algorithm: <code>{audit.dataset}</code></span>
+                    <span style={{ fontFamily: "var(--font-mono)", color: "#475569" }}>Proof: {audit.tamperProofHash}</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Active Real-Time Stations List */}
             <div>
