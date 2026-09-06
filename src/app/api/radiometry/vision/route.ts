@@ -33,6 +33,36 @@ export async function POST(request: Request) {
       });
     }
 
+    const promptText = `
+You are an atmospheric scientist and expert in optical remote sensing and aerosol physics.
+Analyze this outdoor sky/horizon photograph to assess air pollution, aerosol loading, and visibility.
+
+Physical optical depth calculated from camera CMOS sensor: ${Number(opticalDepth).toFixed(3)}
+Baseline physical estimated AQI: ${Math.round(Number(aqi))}
+Location context: ${locationName}
+
+Task:
+1. Distinguish natural water vapor clouds from particulate aerosol haze/smog/smoke.
+2. Estimate horizontal visibility distance and visual landmark contrast.
+3. Identify dominant atmospheric optical characteristics (e.g. photochemical smog, dust suspension, biomass burning smoke, or clean Rayleigh atmosphere).
+4. Provide an independent visual AQI estimate on the 0-500 Indian/US standard scale.
+
+Return ONLY valid JSON with no markdown backticks, matching this exact structure:
+{
+  "hazeSeverity": "pristine" | "light" | "moderate" | "heavy" | "severe",
+  "hazeDescription": "1-2 concise sentences summarizing the atmospheric conditions and particulate load",
+  "estimatedAodTau": number between 0.05 and 3.0,
+  "estimatedAqi": integer between 0 and 500,
+  "aqiCategory": "Good" | "Moderate" | "Poor" | "Very Poor" | "Severe" | "Hazardous",
+  "cloudCoveragePercent": number between 0 and 100,
+  "cloudType": "Clear" | "Cirrus" | "Cumulus" | "Stratus" | "Overcast" | "Inversion Smog Layer",
+  "aerosolVsCloudConfidence": number between 0.5 and 0.99,
+  "skyTurbidityRating": "low" | "moderate" | "high" | "extreme",
+  "visualClarity": "e.g. Horizon contrast indicates ~3.2 km visibility",
+  "radiometricCorroboration": "brief explanation comparing visual haze with the physical optical depth ${Number(opticalDepth).toFixed(3)}"
+}
+`;
+
     let parsed: Record<string, unknown> | null = null;
     let providerUsed = "";
 

@@ -6,6 +6,14 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { type CorridorStation, type CorridorApiResponse } from "@/types/corridor";
 import { getGeeStateAudit } from "@/lib/earthEngine";
+import {
+  determineGrapStage,
+  calculateTransboundaryTransit,
+  generateSection31ADirective,
+  type StatutoryDirective,
+  type GrapStageConfig,
+  type TransboundaryTransitEstimate,
+} from "@/lib/federation";
 
 // ─── State Node Definitions ──────────────────────────────────────────────────
 
@@ -103,10 +111,13 @@ export default function FederationPage() {
   const [lastFetchedTime, setLastFetchedTime] = useState<string>("");
   const [zkProofHashes, setZkProofHashes] = useState<Record<string, string>>({});
 
-  // Emergency Action Simulation State
+  // Emergency Action Simulation & Statutory Directive State
   const [dispatchStatus, setDispatchStatus] = useState<"idle" | "dispatching" | "active">("idle");
   const [dispatchProgress, setDispatchProgress] = useState<number>(0);
   const [actionToken, setActionToken] = useState<string>("");
+  const [directive, setDirective] = useState<StatutoryDirective | null>(null);
+  const [showOrderModal, setShowOrderModal] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
   const [logs, setLogs] = useState<{ time: string; msg: string; type: "info" | "success" | "warning" }[]>([]);
 
   // Fetch Live Real Data from Corridor API
@@ -177,21 +188,44 @@ export default function FederationPage() {
     };
   }, [currentStateStations]);
 
-  // Execute 1-Click Interactive Emergency GRAP Action
-  const handleTriggerGrapAction = () => {
+  // Dynamic CAQM Statutory GRAP Stage
+  const grapInfo: GrapStageConfig = useMemo(() => {
+    return determineGrapStage(stateMetrics.avgAqi);
+  }, [stateMetrics.avgAqi]);
+
+  // Dynamic Transboundary Air Arrival Window Calculation
+  const transitInfo: TransboundaryTransitEstimate = useMemo(() => {
+    return calculateTransboundaryTransit(
+      selectedStateId,
+      apiData?.wind.speed ?? 12,
+      apiData?.wind.deg ?? 310
+    );
+  }, [selectedStateId, apiData?.wind.speed, apiData?.wind.deg]);
+
+  // Execute 1-Click Interactive Statutory CAQM Section 31A Action Dispatch
+  const handleTriggerGrapAction = async () => {
     if (dispatchStatus === "dispatching") return;
     setDispatchStatus("dispatching");
     setDispatchProgress(15);
     setLogs([
-      { time: new Date().toLocaleTimeString(), msg: "Initiating Zero-Knowledge consensus between DPCC, HSPCB, and UPPCB...", type: "info" }
+      { time: new Date().toLocaleTimeString(), msg: `Evaluating CAQM GRAP threshold for ${activeNode.name} (Live AQI: ${stateMetrics.avgAqi})...`, type: "info" },
+      { time: new Date().toLocaleTimeString(), msg: `Statutory determination: ${grapInfo.label} invoked.`, type: "info" },
     ]);
+
+    const generatedDirective = await generateSection31ADirective(
+      activeNode.name,
+      activeNode.code,
+      stateMetrics.avgAqi,
+      transitInfo
+    );
+    setDirective(generatedDirective);
 
     setTimeout(() => {
       setDispatchProgress(45);
       setLogs((prev) => [
         ...prev,
-        { time: new Date().toLocaleTimeString(), msg: `Verified zk-SNARK proof hash: ${zkProofHashes[activeNode.id] || "0x8f3c4e...d921"} (Valid on-chain).`, type: "success" },
-        { time: new Date().toLocaleTimeString(), msg: `Upwind wind vector detected at ${apiData?.wind.speed ?? 8} km/h (${apiData?.wind.dir ?? "NW"}). Calculating 3.5-hour corridor arrival window.`, type: "info" }
+        { time: new Date().toLocaleTimeString(), msg: `Verified SHA-256 Attestation: ${generatedDirective.sha256Attestation.slice(0, 20)}...`, type: "success" },
+        { time: new Date().toLocaleTimeString(), msg: `${transitInfo.arrivalWindowExplanation}`, type: "info" }
       ]);
     }, 900);
 
@@ -199,19 +233,18 @@ export default function FederationPage() {
       setDispatchProgress(75);
       setLogs((prev) => [
         ...prev,
-        { time: new Date().toLocaleTimeString(), msg: "Dispatched 40 Anti-Smog Water Mist Cannons to high-load receptors (Anand Vihar, Mundka, DTU).", type: "success" },
-        { time: new Date().toLocaleTimeString(), msg: "Rerouted 1,800 non-essential diesel freight trucks to Eastern & Western Peripheral Expressways.", type: "warning" }
+        { time: new Date().toLocaleTimeString(), msg: `Section 31A Order ${generatedDirective.orderNumber} issued to: ${generatedDirective.directedAgencies.slice(0, 3).join(", ")}.`, type: "success" },
+        { time: new Date().toLocaleTimeString(), msg: `Active Mandate: ${generatedDirective.mandatoryActions[0]}`, type: "warning" }
       ]);
     }, 1800);
 
     setTimeout(() => {
       setDispatchProgress(100);
-      const token = "GRAP4-TOKEN-" + Math.random().toString(36).substring(2, 9).toUpperCase();
-      setActionToken(token);
+      setActionToken(generatedDirective.orderNumber);
       setDispatchStatus("active");
       setLogs((prev) => [
         ...prev,
-        { time: new Date().toLocaleTimeString(), msg: `Multi-State Emergency Action Executed Successfully. Cryptographic Token: ${token}`, type: "success" }
+        { time: new Date().toLocaleTimeString(), msg: `Statutory Order enforceable across interstate border nodes. Cryptographic Order: ${generatedDirective.orderNumber}`, type: "success" }
       ]);
     }, 2700);
   };
@@ -220,6 +253,7 @@ export default function FederationPage() {
     setDispatchStatus("idle");
     setDispatchProgress(0);
     setActionToken("");
+    setDirective(null);
     setLogs([]);
   };
 
@@ -477,73 +511,170 @@ export default function FederationPage() {
               </div>
             </div>
 
-            {/* 3 Real-time Metrics Panels */}
+            {/* 3 Real-time Metrics Panels: GRAP Stage, Kinematic Arrival Window, and Airshed Role */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                 gap: "var(--spacing-lg)",
+                marginBottom: "var(--spacing-lg)",
+              }}
+            >
+              {/* Metric 1: Real CAQM GRAP Stage & Live AQI */}
+              <div
+                style={{
+                  padding: "18px",
+                  borderRadius: "var(--rounded-md)",
+                  backgroundColor: "var(--color-canvas-parchment)",
+                  border: `1px solid ${grapInfo.borderColor}`,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-ink-muted-48)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Active CAQM GRAP Stage
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: "var(--rounded-pill)",
+                      backgroundColor: grapInfo.bgColor,
+                      color: grapInfo.textColor,
+                      border: `1px solid ${grapInfo.borderColor}`,
+                    }}
+                  >
+                    {grapInfo.shortLabel}
+                  </span>
+                </div>
+                <div style={{ fontSize: "28px", fontWeight: 700, color: grapInfo.textColor, marginTop: "6px" }}>
+                  AQI {stateMetrics.avgAqi}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-ink-muted-80)", marginTop: "4px" }}>
+                  <strong>Category:</strong> {grapInfo.category} ({stateMetrics.avgPm25} µg/m³ PM2.5)
+                </div>
+              </div>
+
+              {/* Metric 2: Transboundary Arrival Window (Physics) */}
+              <div
+                style={{
+                  padding: "18px",
+                  borderRadius: "var(--rounded-md)",
+                  backgroundColor: "var(--color-canvas-parchment)",
+                  border: "1px solid var(--color-divider-soft)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-ink-muted-48)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Transboundary Arrival Window
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#0066cc",
+                      backgroundColor: "rgba(0, 102, 204, 0.08)",
+                      padding: "2px 8px",
+                      borderRadius: "var(--rounded-pill)",
+                    }}
+                  >
+                    Kinematic Advection
+                  </span>
+                </div>
+                <div style={{ fontSize: "28px", fontWeight: 700, color: "var(--color-ink)", marginTop: "6px" }}>
+                  {transitInfo.transitHoursDisplay}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-ink-muted-80)", marginTop: "4px" }}>
+                  <strong>Advection:</strong> {transitInfo.distanceKm > 0 ? `${transitInfo.distanceKm} km to border at ` : ""}{transitInfo.windSpeedKmh} km/h ({transitInfo.windDirectionLabel})
+                </div>
+              </div>
+
+              {/* Metric 3: Airshed Role (Donor vs Receptor) */}
+              <div
+                style={{
+                  padding: "18px",
+                  borderRadius: "var(--rounded-md)",
+                  backgroundColor: "var(--color-canvas-parchment)",
+                  border: "1px solid var(--color-divider-soft)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-ink-muted-48)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Inter-State Air-Shed Role
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: "var(--rounded-pill)",
+                      backgroundColor: transitInfo.isUpwindDonor ? "rgba(220, 38, 38, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                      color: transitInfo.isUpwindDonor ? "#dc2626" : "#16a34a",
+                    }}
+                  >
+                    {transitInfo.isUpwindDonor ? "Active Donor Plume" : "Protected / Receptor"}
+                  </span>
+                </div>
+                <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--color-ink)", marginTop: "10px", lineHeight: 1.2 }}>
+                  {transitInfo.airshedRole}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--color-ink-muted-80)", marginTop: "6px" }}>
+                  <strong>Authority:</strong> {activeNode.authority.split("(")[0].trim()}
+                </div>
+              </div>
+            </div>
+
+            {/* CAQM Statutory Restriction Mandates Card */}
+            <div
+              style={{
+                padding: "18px 20px",
+                borderRadius: "var(--rounded-md)",
+                backgroundColor: grapInfo.bgColor,
+                border: `1px solid ${grapInfo.borderColor}`,
                 marginBottom: "var(--spacing-xl)",
               }}
             >
-              {/* Metric 1: Real PM2.5 Live */}
-              <div
-                style={{
-                  padding: "18px",
-                  borderRadius: "var(--rounded-md)",
-                  backgroundColor: "var(--color-canvas-parchment)",
-                  border: "1px solid var(--color-divider-soft)",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-ink-muted-48)", textTransform: "uppercase" }}>
-                  Live State Avg PM2.5
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: grapInfo.color }} />
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: grapInfo.textColor, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Commission for Air Quality Management (CAQM) &bull; {grapInfo.label}
+                  </span>
                 </div>
-                <div style={{ fontSize: "32px", fontWeight: 700, color: "var(--color-ink)", marginTop: "4px" }}>
-                  {stateMetrics.avgPm25} <span style={{ fontSize: "16px", fontWeight: 400, color: "var(--color-ink-muted-48)" }}>µg/m³</span>
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--color-ink-muted-80)", marginTop: "4px" }}>
-                  <strong>Calculated AQI:</strong> {stateMetrics.avgAqi} (India Standard)
-                </div>
+                <span style={{ fontSize: "11px", fontWeight: 600, color: grapInfo.textColor, backgroundColor: "#ffffff", padding: "3px 10px", borderRadius: "9999px", border: `1px solid ${grapInfo.borderColor}` }}>
+                  Threshold: AQI {grapInfo.minAqi}&ndash;{grapInfo.maxAqi === 500 ? "500+" : grapInfo.maxAqi}
+                </span>
               </div>
-
-              {/* Metric 2: Data Privacy Guarantee */}
-              <div
-                style={{
-                  padding: "18px",
-                  borderRadius: "var(--rounded-md)",
-                  backgroundColor: "var(--color-canvas-parchment)",
-                  border: "1px solid var(--color-divider-soft)",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-ink-muted-48)", textTransform: "uppercase" }}>
-                  Data Sovereignty & Privacy
-                </div>
-                <div style={{ fontSize: "32px", fontWeight: 700, color: "#0066cc", marginTop: "4px" }}>
-                  100%
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--color-ink-muted-80)", marginTop: "4px" }}>
-                  0 Raw GPS or Farm coordinates exposed to Central Cloud
-                </div>
+              <p style={{ fontSize: "13px", color: "var(--color-ink)", margin: "0 0 12px 0", lineHeight: 1.4 }}>
+                {grapInfo.executiveSummary} {transitInfo.arrivalWindowExplanation}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+                {grapInfo.statutoryMandates.map((mandate, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "8px",
+                      fontSize: "12px",
+                      color: "var(--color-ink-muted-80)",
+                      backgroundColor: "#ffffff",
+                      padding: "10px 12px",
+                      borderRadius: "var(--rounded-sm)",
+                      border: "1px solid rgba(0,0,0,0.06)",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <span style={{ color: grapInfo.color, fontWeight: 700 }}>{idx + 1}.</span>
+                    <span>{mandate}</span>
+                  </div>
+                ))}
               </div>
-
-              {/* Metric 3: Verified Compliance Target */}
-              <div
-                style={{
-                  padding: "18px",
-                  borderRadius: "var(--rounded-md)",
-                  backgroundColor: "var(--color-canvas-parchment)",
-                  border: "1px solid var(--color-divider-soft)",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-ink-muted-48)", textTransform: "uppercase" }}>
-                  Federated Target Status
-                </div>
-                <div style={{ fontSize: "18px", fontWeight: 600, color: "var(--color-ink)", marginTop: "8px" }}>
-                  {activeNode.complianceTarget}
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--color-ink-muted-80)", marginTop: "4px" }}>
-                  {activeNode.primaryFocus}
-                </div>
+              <div style={{ fontSize: "11px", color: "var(--color-ink-muted-48)", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "8px" }}>
+                <span><strong>Enforcing Agencies:</strong> {grapInfo.targetedAgencies.join(" • ")}</span>
+                <span>Statutory Authority: Air Act 1981 & CAQM Act 2021</span>
               </div>
             </div>
 
@@ -714,25 +845,27 @@ export default function FederationPage() {
                   style={{
                     width: "100%",
                     padding: "14px 20px",
-                    fontSize: "16px",
+                    fontSize: "15px",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "8px",
+                    backgroundColor: grapInfo.color,
+                    borderColor: grapInfo.borderColor,
                   }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
-                  Execute Inter-State GRAP-4 Dispatch
+                  Execute Section 31A {grapInfo.shortLabel} Order
                 </button>
               )}
 
               {dispatchStatus === "dispatching" && (
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>
-                    <span>Broadcasting Cryptographic Triggers...</span>
+                    <span>Enforcing {grapInfo.label}...</span>
                     <span>{dispatchProgress}%</span>
                   </div>
                   <div
@@ -748,7 +881,7 @@ export default function FederationPage() {
                       style={{
                         height: "100%",
                         width: `${dispatchProgress}%`,
-                        backgroundColor: "#0066cc",
+                        backgroundColor: grapInfo.color,
                         transition: "width 0.6s ease",
                       }}
                     />
@@ -775,27 +908,53 @@ export default function FederationPage() {
                         <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e7e34" }}>
-                        GRAP-4 Protocol Active
+                        {grapInfo.shortLabel} Directive Active
                       </span>
                     </div>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 600, color: "#1e7e34" }}>
-                      {actionToken}
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 600, color: "#1e7e34" }}>
+                      {actionToken.split("/").pop()}
                     </span>
                   </div>
 
-                  <button
-                    onClick={handleResetAction}
-                    className="button-secondary-pill"
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      textAlign: "center",
-                    }}
-                  >
-                    Reset Simulation Console
-                  </button>
+                  <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+                    <button
+                      onClick={() => setShowOrderModal(true)}
+                      className="button-primary"
+                      style={{
+                        flex: 1,
+                        padding: "10px",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        textAlign: "center",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                      Inspect Statutory Order
+                    </button>
+
+                    <button
+                      onClick={handleResetAction}
+                      className="button-secondary-pill"
+                      style={{
+                        padding: "10px 14px",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        textAlign: "center",
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -896,6 +1055,138 @@ export default function FederationPage() {
             </div>
           </div>
         </section>
+
+        {/* =================================================================
+            SECTION 31A STATUTORY ADMINISTRATIVE ORDER MODAL
+            ================================================================= */}
+        {showOrderModal && directive && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.65)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: "20px",
+            }}
+            onClick={() => setShowOrderModal(false)}
+          >
+            <div
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: "var(--rounded-lg)",
+                maxWidth: "760px",
+                width: "100%",
+                maxHeight: "90vh",
+                display: "flex",
+                flexDirection: "column",
+                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.25)",
+                overflow: "hidden",
+                border: "1px solid var(--color-divider-soft)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderBottom: "1px solid var(--color-divider-soft)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  backgroundColor: "var(--color-canvas-parchment)",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#0066cc", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Official Statutory Administrative Order
+                  </div>
+                  <h3 style={{ fontSize: "17px", fontWeight: 700, color: "var(--color-ink)", margin: "2px 0 0 0" }}>
+                    Section 31A Air Act Directive &bull; {directive.orderNumber}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowOrderModal(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: "24px",
+                    cursor: "pointer",
+                    color: "var(--color-ink-muted-48)",
+                    padding: "4px 8px",
+                    lineHeight: 1,
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: "20px",
+                  overflowY: "auto",
+                  flex: 1,
+                  backgroundColor: "#0d1117",
+                  color: "#c9d1d9",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "12px",
+                  lineHeight: 1.5,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {directive.legalNoticeText}
+              </div>
+
+              <div
+                style={{
+                  padding: "14px 20px",
+                  borderTop: "1px solid var(--color-divider-soft)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  backgroundColor: "var(--color-canvas-parchment)",
+                }}
+              >
+                <div style={{ fontSize: "12px", color: "var(--color-ink-muted-48)" }}>
+                  SHA-256: <code style={{ color: "#28a745" }}>{directive.sha256Attestation.slice(0, 24)}...</code>
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(directive.legalNoticeText);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="button-primary"
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {copied ? "Copied to Clipboard!" : "Copy Legal Order"}
+                  </button>
+                  <button
+                    onClick={() => setShowOrderModal(false)}
+                    className="button-secondary-pill"
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />
