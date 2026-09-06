@@ -35,7 +35,8 @@ export function useCorridorData(): UseCorridorDataReturn {
       });
 
       if (!res.ok) {
-        throw new Error(`API returned ${res.status}`);
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || `API returned ${res.status}`);
       }
 
       const data: CorridorApiResponse = await res.json();

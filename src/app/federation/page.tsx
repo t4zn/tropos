@@ -101,7 +101,7 @@ export default function FederationPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastFetchedTime, setLastFetchedTime] = useState<string>("");
   const [zkProofHashes, setZkProofHashes] = useState<Record<string, string>>({});
-  
+
   // Emergency Action Simulation State
   const [dispatchStatus, setDispatchStatus] = useState<"idle" | "dispatching" | "active">("idle");
   const [dispatchProgress, setDispatchProgress] = useState<number>(0);

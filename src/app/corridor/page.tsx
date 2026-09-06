@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import dynamic from "next/dynamic";
@@ -54,6 +54,83 @@ export default function CorridorPage() {
   const { stations, wind, isLoading, error, lastUpdated, refetch } = useCorridorData();
   const [selectedStation, setSelectedStation] = useState<CorridorStation | null>(null);
 
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("All");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close autocomplete dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Keyboard shortcut: Cmd+K, Ctrl+K, or "/" to focus search bar
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        (e.key === "/" || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k")) &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setIsSearchFocused(true);
+      }
+      if (e.key === "Escape") {
+        setIsSearchFocused(false);
+        searchInputRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Filter stations based on search query & region chip
+  const filteredStations = stations.filter((station) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesQuery =
+      !q ||
+      station.name.toLowerCase().includes(q) ||
+      (station.area && station.area.toLowerCase().includes(q)) ||
+      (station.provider && station.provider.toLowerCase().includes(q)) ||
+      station.status.toLowerCase().includes(q);
+
+    const matchesRegion =
+      selectedRegion === "All" ||
+      (selectedRegion === "Delhi" &&
+        (station.area?.toLowerCase().includes("delhi") ||
+          station.name.toLowerCase().includes("delhi") ||
+          station.id.startsWith("DEL-"))) ||
+      (selectedRegion === "Noida" &&
+        (station.area?.toLowerCase().includes("noida") ||
+          station.id.startsWith("UP-NOI") ||
+          station.id.startsWith("UP-GBN"))) ||
+      (selectedRegion === "Gurugram" &&
+        (station.area?.toLowerCase().includes("gurugram") ||
+          station.id.startsWith("HAR-GGN"))) ||
+      (selectedRegion === "Faridabad" &&
+        (station.area?.toLowerCase().includes("faridabad") ||
+          station.id.startsWith("HAR-FBD"))) ||
+      (selectedRegion === "Ghaziabad" &&
+        (station.area?.toLowerCase().includes("ghaziabad") ||
+          station.id.startsWith("UP-GZB")));
+
+    return matchesQuery && matchesRegion;
+  });
+
   // Corridor summary
   const avgAqi = stations.length
     ? Math.round(stations.reduce((sum, s) => sum + s.aqi, 0) / stations.length)
@@ -79,7 +156,7 @@ export default function CorridorPage() {
             </h1>
 
             <p className="corridor-subtitle">
-              Real-time air quality across the Delhi-NCR corridor.
+              Live real-time air quality telemetry across the Delhi-NCR airshed.
             </p>
           </div>
         </section>
@@ -121,6 +198,26 @@ export default function CorridorPage() {
               </div>
             </div>
 
+            <div style={{ width: "1px", backgroundColor: "#e5e5e5", alignSelf: "stretch" }} />
+
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, color: "#16a34a" }}>
+                <span
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: "#16a34a",
+                    animation: "pulse-live 2s infinite",
+                  }}
+                />
+                Live Network
+              </div>
+              <div className="corridor-stat-label">
+                Real-Time Telemetry
+              </div>
+            </div>
+
             {severeCount > 0 && (
               <>
                 <div style={{ width: "1px", backgroundColor: "#e5e5e5", alignSelf: "stretch" }} />
@@ -136,6 +233,139 @@ export default function CorridorPage() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        </section>
+
+        {/* Search & Location Filter Toolbar */}
+        <section className="corridor-search-section">
+          <div className="container corridor-search-container">
+            <div className="corridor-search-wrapper">
+              {/* Search Box */}
+              <div className="corridor-search-input-box">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#8e8e93"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsSearchFocused(true);
+                  }}
+                  onFocus={() => setIsSearchFocused(true)}
+                  placeholder="Search locations, stations, or areas (e.g. Anand Vihar, Noida, IGI, Gurugram)..."
+                  className="corridor-search-input"
+                />
+
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsSearchFocused(false);
+                    }}
+                    className="corridor-search-clear"
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+
+                <span className="corridor-search-shortcut" title="Press ⌘K or / to search">
+                  ⌘K
+                </span>
+              </div>
+
+              {/* Quick Region Chips */}
+              <div className="corridor-chips-list">
+                {["All", "Delhi", "Noida", "Gurugram", "Faridabad", "Ghaziabad"].map((region) => (
+                  <button
+                    key={region}
+                    onClick={() => {
+                      setSelectedRegion(region);
+                      setIsSearchFocused(false);
+                    }}
+                    className={`corridor-chip ${selectedRegion === region ? "active" : ""}`}
+                  >
+                    {region}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Instant Autocomplete Dropdown */}
+            {isSearchFocused && searchQuery.trim().length > 0 && (
+              <div className="corridor-search-dropdown" ref={dropdownRef}>
+                {filteredStations.length === 0 ? (
+                  <div className="corridor-search-empty">
+                    No stations match "{searchQuery}"
+                  </div>
+                ) : (
+                  filteredStations.slice(0, 8).map((station) => (
+                    <div
+                      key={station.id}
+                      onClick={() => {
+                        setSelectedStation(station);
+                        setIsSearchFocused(false);
+                      }}
+                      className="corridor-search-dropdown-item"
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            backgroundColor: statusColor(station.status),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ fontWeight: 600, color: "#1d1d1f", fontSize: "14px" }}>
+                          {station.name}
+                        </span>
+                        {station.area && (
+                          <span style={{ color: "#8e8e93", fontSize: "12px" }}>
+                            • {station.area}
+                          </span>
+                        )}
+                        {station.provider && (
+                          <span className="corridor-provider-pill">
+                            {station.provider}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <span style={{ fontSize: "12px", color: "#8e8e93" }}>
+                          PM2.5: {station.pm25}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            color: statusColor(station.status),
+                            minWidth: "36px",
+                            textAlign: "right",
+                          }}
+                        >
+                          AQI {station.aqi}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         </section>
@@ -178,7 +408,7 @@ export default function CorridorPage() {
                 </div>
               ) : (
                 <CorridorMap
-                  stations={stations}
+                  stations={filteredStations.length > 0 ? filteredStations : stations}
                   selectedStation={selectedStation}
                   onSelectStation={setSelectedStation}
                   wind={wind}
@@ -191,10 +421,27 @@ export default function CorridorPage() {
             {selectedStation && (
               <div className="corridor-inspector-card">
                 {/* Close button */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                   <div>
-                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#0066cc", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
-                      Station
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: "#0066cc", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Station
+                      </span>
+                      {selectedStation.provider && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            color: "#0066cc",
+                            backgroundColor: "#f0f7ff",
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                            border: "0.5px solid #d0e5ff",
+                          }}
+                        >
+                          {selectedStation.provider}
+                        </span>
+                      )}
                     </div>
                     <h3 style={{ fontSize: "20px", fontWeight: 600, color: "#1d1d1f", letterSpacing: "-0.3px", lineHeight: 1.15 }}>
                       {selectedStation.name}
@@ -227,8 +474,8 @@ export default function CorridorPage() {
                     display: "flex",
                     alignItems: "baseline",
                     gap: "12px",
-                    marginBottom: "24px",
-                    paddingBottom: "20px",
+                    marginBottom: "20px",
+                    paddingBottom: "16px",
                     borderBottom: "1px solid #f0f0f0",
                   }}
                 >
@@ -248,7 +495,7 @@ export default function CorridorPage() {
                       {selectedStation.status}
                     </div>
                     <div style={{ fontSize: "12px", color: "#7a7a7a", marginTop: "1px" }}>
-                      India CPCB AQI
+                      India CPCB NAQI
                     </div>
                   </div>
                 </div>
@@ -256,20 +503,38 @@ export default function CorridorPage() {
                 {/* Metrics */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", flex: 1 }}>
                   <MetricCell label="PM2.5" value={`${selectedStation.pm25}`} unit="µg/m³" />
-                  <MetricCell label="PM10" value={`${selectedStation.pm10}`} unit="µg/m³" />
+                  <MetricCell
+                    label="PM10"
+                    value={selectedStation.pm10 > 0 ? `${selectedStation.pm10}` : "—"}
+                    unit={selectedStation.pm10 > 0 ? "µg/m³" : "unmeasured"}
+                  />
                   <MetricCell label="Wind" value={`${selectedStation.windSpeed}`} unit={`km/h ${selectedStation.windDir}`} />
                   <MetricCell label="Boundary Layer" value={`${selectedStation.boundaryLayerHeight}`} unit="m" />
                   <MetricCell label="Temperature" value={`${selectedStation.temperature}`} unit="°C" />
                   <MetricCell label="Humidity" value={`${selectedStation.humidity}`} unit="%" />
                 </div>
 
+                {/* Observation time */}
+                {selectedStation.observationTime && (
+                  <div style={{ fontSize: "11px", color: "#6e6e73", marginTop: "14px", display: "flex", alignItems: "center", gap: "5px" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16a34a" }} />
+                    Telemetry observed: {new Date(selectedStation.observationTime).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                )}
+
                 {/* Source + Trace CTA */}
-                <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid #f0f0f0" }}>
+                <div style={{ marginTop: "auto", paddingTop: "16px", borderTop: "1px solid #f0f0f0" }}>
                   <div style={{ fontSize: "11px", color: "#7a7a7a", marginBottom: "12px" }}>
-                    Source: {selectedStation.source === "google" ? "Google Air Quality API" : "Open-Meteo CAMS"}
+                    Source: {selectedStation.source === "openweather"
+                      ? `OpenWeather Live (${selectedStation.provider || "Station Sensor"})`
+                      : selectedStation.source === "openaq"
+                      ? `OpenAQ v3 (${selectedStation.provider || "Ground Telemetry"})`
+                      : selectedStation.source === "google"
+                      ? "Google Air Quality API"
+                      : "Real-Time Telemetry"}
                   </div>
                   <Link
-                    href="/attribution"
+                    href={`/attribution?station=${selectedStation.id}`}
                     style={{
                       display: "block",
                       textAlign: "center",
@@ -296,9 +561,45 @@ export default function CorridorPage() {
         <section className="corridor-stations-section">
           <div className="container" style={{ maxWidth: "1120px" }}>
             <div className="corridor-stations-header">
-              <h2 className="corridor-stations-title">
-                All Stations
-              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <h2 className="corridor-stations-title">
+                  All Stations
+                </h2>
+                {(searchQuery.trim() || selectedRegion !== "All") && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#0066cc",
+                        backgroundColor: "#f0f7ff",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        fontWeight: 500,
+                        border: "0.5px solid #d0e5ff",
+                      }}
+                    >
+                      Filtered: {filteredStations.length} of {stations.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedRegion("All");
+                      }}
+                      style={{
+                        fontSize: "12px",
+                        color: "#6e6e73",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {lastUpdated && (
                 <span className="corridor-stations-time">
                   Updated {lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
@@ -308,7 +609,40 @@ export default function CorridorPage() {
 
             {isLoading ? (
               <div className="corridor-loading-state">
-                Fetching live data from Open-Meteo…
+                Fetching real-time telemetry for Delhi-NCR stations…
+              </div>
+            ) : filteredStations.length === 0 ? (
+              <div
+                style={{
+                  padding: "48px 24px",
+                  textAlign: "center",
+                  backgroundColor: "#f5f5f7",
+                  borderRadius: "14px",
+                  color: "#8e8e93",
+                  fontSize: "14px",
+                }}
+              >
+                No stations match "{searchQuery || selectedRegion}".
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedRegion("All");
+                  }}
+                  style={{
+                    display: "block",
+                    margin: "12px auto 0",
+                    padding: "6px 16px",
+                    borderRadius: "9999px",
+                    backgroundColor: "#0066cc",
+                    color: "#ffffff",
+                    border: "none",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  Reset filters
+                </button>
               </div>
             ) : (
               <div className="corridor-table-card">
@@ -336,7 +670,7 @@ export default function CorridorPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {stations.map((station) => {
+                    {filteredStations.map((station) => {
                       const isSelected = selectedStation?.id === station.id;
                       return (
                         <tr
@@ -355,6 +689,35 @@ export default function CorridorPage() {
                               <span className="corridor-station-name">
                                 {station.name}
                               </span>
+                              {station.area && (
+                                <span
+                                  style={{
+                                    fontSize: "11px",
+                                    color: "#8e8e93",
+                                    marginLeft: "6px",
+                                  }}
+                                >
+                                  ({station.area})
+                                </span>
+                              )}
+                              {station.provider && (
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 600,
+                                    color: "#0066cc",
+                                    backgroundColor: "#f0f7ff",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    marginLeft: "8px",
+                                    border: "0.5px solid #d0e5ff",
+                                    letterSpacing: "0.2px",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {station.provider}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td
