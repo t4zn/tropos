@@ -8,6 +8,8 @@ import { useFirmsData } from "@/hooks/useFirmsData";
 import dynamic from "next/dynamic";
 import { getGeeHarmonizationData } from "@/lib/earthEngine";
 
+import { REGION_SECTORS, type RegionHotspot } from "@/components/AodMap";
+
 const AodMap = dynamic(() => import("@/components/AodMap"), {
   ssr: false,
   loading: () => (
@@ -30,6 +32,7 @@ const AodMap = dynamic(() => import("@/components/AodMap"), {
 });
 
 type Channel = "IR1" | "VIS" | "SWIR" | "WV";
+type CompositeMode = "raw" | "dust_rgb" | "natural_color";
 
 interface WeatherData {
   temperature: number;
@@ -71,6 +74,30 @@ function useWeatherData() {
   return { weather: data, isLoading: loading };
 }
 
+/** Check if current IST or current selected scan IST is in the dusk stubble burning window (17:00–19:30 IST) */
+function isDuskStubbleWindow(istTimeStr?: string): { inWindow: boolean; istHour: number; istMinute: number } {
+  let h = 0;
+  let m = 0;
+  if (istTimeStr) {
+    const match = istTimeStr.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      h = parseInt(match[1], 10);
+      m = parseInt(match[2], 10);
+    }
+  } else {
+    // Current IST time
+    const nowUtc = new Date();
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(nowUtc.getTime() + istOffsetMs);
+    h = istDate.getUTCHours();
+    m = istDate.getUTCMinutes();
+  }
+  const totalMins = h * 60 + m;
+  // 17:00 (1020 mins) to 19:30 (1170 mins)
+  const inWindow = totalMins >= 1020 && totalMins <= 1170;
+  return { inWindow, istHour: h, istMinute: m };
+}
+
 export default function InsatPage() {
   const { scans, aodScans, channelLabels, satellite, orbit, isLoading: satLoading } = useSatelliteData();
   const { fires, corridorFireCount, isLoading: firmsLoading, error: firmsError, fetchedAt: firmsFetchedAt } = useFirmsData();
@@ -83,20 +110,53 @@ export default function InsatPage() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [failedScans, setFailedScans] = useState<Set<string>>(new Set());
 
+  // Innovation 1: Interactive Time-Lapse Loop Player
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 1 | 2>(1);
+
+  // Innovation 3: True-Color & False-Color RGB Composite Switcher
+  const [compositeMode, setCompositeMode] = useState<CompositeMode>("raw");
+
+  // Innovation 4: Sector Inspector & City Zoom
+  const [selectedSectorId, setSelectedSectorId] = useState<string>("delhi-ncr");
+
+  // Innovation 2: Dusk Stubble Window Inversion Status
+  const currentScanObj = scans[selectedScanIdx] ?? null;
+  const currentAodObj = aodScans[selectedAodIdx] ?? null;
+  const activeIstTime = viewMode === "map" ? currentAodObj?.istTime : currentScanObj?.istTime;
+  const stubbleWindow = isDuskStubbleWindow(activeIstTime);
+
   // Reset image loaded state on selection change
   useEffect(() => {
     setImageLoaded(false);
-  }, [selectedScanIdx, selectedChannel]);
+  }, [selectedScanIdx, selectedChannel, compositeMode]);
+
+  // Time-Lapse Animation Interval
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const intervalMs = Math.round(1200 / playbackSpeed);
+    const timer = setInterval(() => {
+      if (viewMode === "map") {
+        if (aodScans.length <= 1) return;
+        setSelectedAodIdx((prev) => (prev + 1) % aodScans.length);
+      } else {
+        if (scans.length <= 1) return;
+        setSelectedScanIdx((prev) => (prev + 1) % scans.length);
+      }
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, playbackSpeed, viewMode, aodScans.length, scans.length]);
 
   const currentScan = scans[selectedScanIdx] ?? null;
   const currentImageUrl = currentScan?.channels?.[selectedChannel] ?? null;
-  const currentKey = currentScan ? `${currentScan.dateLabel}-${currentScan.utcTime}-${selectedChannel}` : "";
+  const currentKey = currentScan ? `${currentScan.dateLabel}-${currentScan.utcTime}-${selectedChannel}-${compositeMode}` : "";
   const currentFailed = failedScans.has(currentKey);
 
   // When an image fails, auto-advance to the next scan slot
   function handleImageError() {
     setFailedScans((prev) => new Set(prev).add(currentKey));
-    // Try next scan slot automatically
     if (selectedScanIdx < scans.length - 1) {
       setSelectedScanIdx((prev) => prev + 1);
     }
@@ -109,6 +169,21 @@ export default function InsatPage() {
 
   const allChannels: Channel[] = ["IR1", "VIS", "SWIR", "WV"];
   const currentAod = aodScans[selectedAodIdx] ?? null;
+
+  // Compute CSS filter styling based on Composite Mode
+  const getCompositeFilter = (): string => {
+    switch (compositeMode) {
+      case "dust_rgb":
+        // Infrared Thermal & Particulate High-Contrast: boost contrast, invert slightly to isolate heat/smog
+        return "contrast(1.65) saturate(1.8) hue-rotate(190deg) brightness(1.1)";
+      case "natural_color":
+        // Vegetative & Optical clarity: enhance sharpness, vibrant green-cyan-earth balance
+        return "contrast(1.35) saturate(1.4) brightness(1.05)";
+      case "raw":
+      default:
+        return "none";
+    }
+  };
 
   return (
     <div
@@ -124,7 +199,7 @@ export default function InsatPage() {
 
       <main style={{ flex: 1 }}>
         {/* Hero Section */}
-        <section style={{ padding: "120px 0 48px", textAlign: "center", backgroundColor: "#0a0a0a" }}>
+        <section style={{ padding: "120px 0 32px", textAlign: "center", backgroundColor: "#0a0a0a" }}>
           <div className="container">
             <div
               style={{
@@ -135,7 +210,7 @@ export default function InsatPage() {
                 borderRadius: "9999px",
                 backgroundColor: "rgba(41, 151, 255, 0.1)",
                 border: "1px solid rgba(41, 151, 255, 0.2)",
-                marginBottom: "20px",
+                marginBottom: "16px",
               }}
             >
               <span
@@ -154,11 +229,11 @@ export default function InsatPage() {
 
             <h1
               style={{
-                fontSize: "56px",
+                fontSize: "54px",
                 fontWeight: 600,
                 letterSpacing: "-0.5px",
                 lineHeight: 1.07,
-                marginBottom: "16px",
+                marginBottom: "14px",
               }}
             >
               INSAT-3DS.
@@ -166,7 +241,7 @@ export default function InsatPage() {
 
             <p
               style={{
-                fontSize: "21px",
+                fontSize: "20px",
                 fontWeight: 400,
                 lineHeight: 1.35,
                 color: "rgba(255, 255, 255, 0.56)",
@@ -180,9 +255,120 @@ export default function InsatPage() {
           </div>
         </section>
 
+        {/* ═══════════════════════════════════════════════════════════════════════ */}
+        {/* INNOVATION 2: THE DUSK STUBBLE WINDOW INVERSION DETECTOR BANNER        */}
+        {/* ═══════════════════════════════════════════════════════════════════════ */}
+        <section style={{ padding: "0 0 24px", backgroundColor: "#0a0a0a" }}>
+          <div className="container" style={{ maxWidth: "1080px" }}>
+            <div
+              style={{
+                padding: "16px 22px",
+                borderRadius: "16px",
+                backgroundColor: stubbleWindow.inWindow
+                  ? "rgba(255, 69, 58, 0.12)"
+                  : "rgba(255, 159, 10, 0.08)",
+                border: stubbleWindow.inWindow
+                  ? "1px solid rgba(255, 69, 58, 0.35)"
+                  : "1px solid rgba(255, 159, 10, 0.22)",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "14px",
+                boxShadow: stubbleWindow.inWindow ? "0 0 24px rgba(255,69,58,0.15)" : "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    backgroundColor: stubbleWindow.inWindow ? "rgba(255,69,58,0.2)" : "rgba(255,159,10,0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "18px",
+                  }}
+                >
+                  {stubbleWindow.inWindow ? "🔥" : "⏳"}
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        color: stubbleWindow.inWindow ? "#ff453a" : "#ff9f0a",
+                        letterSpacing: "-0.2px",
+                      }}
+                    >
+                      {stubbleWindow.inWindow
+                        ? "Dusk Stubble Window Active (17:00–19:30 IST)"
+                        : "Dusk Stubble Window Inactive (17:00–19:30 IST Standby)"}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 600,
+                        padding: "2px 8px",
+                        borderRadius: "9999px",
+                        backgroundColor: stubbleWindow.inWindow ? "#ff453a" : "rgba(255,255,255,0.1)",
+                        color: "#ffffff",
+                      }}
+                    >
+                      {stubbleWindow.inWindow ? "POLAR SATELLITE BLIND SPOT" : "GEOSTATIONARY STANDBY"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginTop: "2px" }}>
+                    {stubbleWindow.inWindow
+                      ? "Agricultural fires lit post-dusk evade Terra/Aqua polar passes (13:30 IST). INSAT-3DS SWIR and Thermal IR provide exclusive nocturnal combustion coverage."
+                      : "Polar satellites (Terra/Aqua/Sentinel-5P) miss twilight burning. INSAT-3DS 15-min cadence continuously scans the Punjab-Haryana-Malwa agricultural corridor."}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    textAlign: "right",
+                    padding: "6px 14px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>
+                    Scan Time
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#fff", fontFamily: "SF Mono, monospace" }}>
+                    {activeIstTime || "Live IST"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedSectorId("punjab-belt")}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "10px",
+                    backgroundColor: "#ff453a",
+                    border: "none",
+                    color: "#ffffff",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Inspect Farm Belt →
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Live Atmospheric Stats Bar */}
-        <section style={{ padding: "0 0 40px", backgroundColor: "#0a0a0a" }}>
-          <div className="container" style={{ maxWidth: "960px" }}>
+        <section style={{ padding: "0 0 32px", backgroundColor: "#0a0a0a" }}>
+          <div className="container" style={{ maxWidth: "1080px" }}>
             <div
               style={{
                 display: "grid",
@@ -194,25 +380,25 @@ export default function InsatPage() {
               }}
             >
               <StatCell
-                label="Wind"
+                label="Wind Speed & Dir"
                 value={wxLoading ? "—" : weather ? `${weather.windSpeed}` : "—"}
                 unit={`km/h ${weather?.windDir ?? ""}`}
                 color="#2997ff"
               />
               <StatCell
-                label="Boundary Layer"
+                label="Planetary Boundary Layer"
                 value={wxLoading ? "—" : weather ? `${weather.boundaryLayerEstimate}` : "—"}
                 unit="m"
                 color="#2997ff"
               />
               <StatCell
-                label="FIRMS Fires"
+                label="Active Thermal Hotspots"
                 value={firmsLoading ? "—" : `${corridorFireCount}`}
                 unit="corridor"
                 color={corridorFireCount > 0 ? "#ff453a" : "#30d158"}
               />
               <StatCell
-                label="Temperature"
+                label="Surface Temperature"
                 value={wxLoading ? "—" : weather ? `${weather.temperature}` : "—"}
                 unit="°C"
                 color="#2997ff"
@@ -282,6 +468,176 @@ export default function InsatPage() {
               </div>
             </div>
 
+            {/* ═══════════════════════════════════════════════════════════════════ */}
+            {/* INNOVATION 1: INTERACTIVE TIME-LAPSE LOOP & RADAR PLAYER BAR       */}
+            {/* ═══════════════════════════════════════════════════════════════════ */}
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "10px 18px",
+                borderRadius: "14px",
+                backgroundColor: "rgba(18, 18, 20, 0.88)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                backdropFilter: "blur(20px)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#2997ff",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: isPlaying ? "#30d158" : "#2997ff",
+                      animation: isPlaying ? "pulse-live 1s infinite" : "none",
+                    }}
+                  />
+                  Time-Lapse Player
+                </span>
+
+                {/* Play / Pause Toggle */}
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: isPlaying ? "rgba(48, 209, 88, 0.2)" : "rgba(41, 151, 255, 0.2)",
+                    border: isPlaying ? "1px solid rgba(48, 209, 88, 0.5)" : "1px solid rgba(41, 151, 255, 0.4)",
+                    color: isPlaying ? "#30d158" : "#2997ff",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {isPlaying ? "❚❚ Pause Loop" : "▶ Play Radar Loop"}
+                </button>
+
+                {/* Step Back & Forward */}
+                <button
+                  onClick={() => {
+                    setIsPlaying(false);
+                    if (viewMode === "map") {
+                      if (aodScans.length > 0) {
+                        setSelectedAodIdx((prev) => (prev > 0 ? prev - 1 : aodScans.length - 1));
+                      }
+                    } else {
+                      if (scans.length > 0) {
+                        setSelectedScanIdx((prev) => (prev > 0 ? prev - 1 : scans.length - 1));
+                      }
+                    }
+                  }}
+                  title="Step back 1 scan"
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#ffffff",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ⏮
+                </button>
+                <button
+                  onClick={() => {
+                    setIsPlaying(false);
+                    if (viewMode === "map") {
+                      if (aodScans.length > 0) {
+                        setSelectedAodIdx((prev) => (prev + 1) % aodScans.length);
+                      }
+                    } else {
+                      if (scans.length > 0) {
+                        setSelectedScanIdx((prev) => (prev + 1) % scans.length);
+                      }
+                    }
+                  }}
+                  title="Step forward 1 scan"
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#ffffff",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ⏭
+                </button>
+
+                {/* Playback Speed Switcher */}
+                <div style={{ display: "flex", gap: "2px", marginLeft: "4px" }}>
+                  {([0.5, 1, 2] as const).map((spd) => (
+                    <button
+                      key={spd}
+                      onClick={() => setPlaybackSpeed(spd)}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        border: "none",
+                        backgroundColor: playbackSpeed === spd ? "#2997ff" : "rgba(255,255,255,0.05)",
+                        color: playbackSpeed === spd ? "#ffffff" : "rgba(255,255,255,0.5)",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {spd}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Innovation 4: Sector Inspector Dropdown */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", fontWeight: 600, textTransform: "uppercase" }}>
+                  Sector Inspector:
+                </span>
+                <select
+                  value={selectedSectorId}
+                  onChange={(e) => setSelectedSectorId(e.target.value)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    backgroundColor: "#1c1c1e",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "#ffffff",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  {REGION_SECTORS.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.state})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {viewMode === "map" ? (
               /* ── View Mode A: Interactive Map (Primary) ── */
               <div>
@@ -312,7 +668,10 @@ export default function InsatPage() {
                     {aodScans.map((aod, idx) => (
                       <button
                         key={`${aod.dateLabel}-${aod.utcTime}`}
-                        onClick={() => setSelectedAodIdx(idx)}
+                        onClick={() => {
+                          setIsPlaying(false);
+                          setSelectedAodIdx(idx);
+                        }}
                         style={{
                           padding: "5px 14px",
                           borderRadius: "8px",
@@ -356,6 +715,8 @@ export default function InsatPage() {
                     opacity={0.7}
                     timeLabel={currentAod?.istTime}
                     dateLabel={currentAod?.dateLabel}
+                    selectedSectorId={selectedSectorId}
+                    onSectorSelect={(sector) => setSelectedSectorId(sector.id)}
                     weather={weather}
                     fires={fires}
                   />
@@ -371,45 +732,124 @@ export default function InsatPage() {
                     color: "rgba(255,255,255,0.25)",
                   }}
                 >
-                  <span>Hover to inspect regional aerosol conditions · Click any hotspot marker to fly to sector</span>
+                  <span>Hover to inspect regional aerosol conditions · Click any hotspot marker or select from Sector Inspector</span>
                   <span>ISRO MOSDAC Level-2 Geophysical Product · Authenticated CARTO Basemap</span>
                 </div>
               </div>
             ) : (
               /* ── View Mode B: Multispectral Full-Disk Channels ── */
               <div>
-                {/* Channel Selector */}
-                <div style={{ display: "flex", justifyContent: "center", gap: "4px", marginBottom: "16px" }}>
-                  {allChannels.map((ch) => (
+                {/* ═════════════════════════════════════════════════════════════════ */}
+                {/* INNOVATION 3: TRUE-COLOR & FALSE-COLOR RGB COMPOSITE SWITCHER    */}
+                {/* ═════════════════════════════════════════════════════════════════ */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {/* Channel Selector */}
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    {allChannels.map((ch) => (
+                      <button
+                        key={ch}
+                        onClick={() => setSelectedChannel(ch)}
+                        style={{
+                          padding: "8px 18px",
+                          borderRadius: "9999px",
+                          border: "none",
+                          backgroundColor: selectedChannel === ch ? "#2997ff" : "rgba(255,255,255,0.06)",
+                          color: selectedChannel === ch ? "#fff" : "rgba(255,255,255,0.6)",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {channelLabels[ch] ?? ch}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* False Color / RGB Composite Mode Selector */}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      padding: "4px",
+                      borderRadius: "10px",
+                      backgroundColor: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", padding: "0 8px", textTransform: "uppercase", fontWeight: 600 }}>
+                      RGB Blend:
+                    </span>
                     <button
-                      key={ch}
-                      onClick={() => setSelectedChannel(ch)}
+                      onClick={() => setCompositeMode("raw")}
                       style={{
-                        padding: "8px 18px",
-                        borderRadius: "9999px",
+                        padding: "5px 12px",
+                        borderRadius: "7px",
                         border: "none",
-                        backgroundColor: selectedChannel === ch ? "#2997ff" : "rgba(255,255,255,0.06)",
-                        color: selectedChannel === ch ? "#fff" : "rgba(255,255,255,0.6)",
-                        fontSize: "13px",
+                        backgroundColor: compositeMode === "raw" ? "#2997ff" : "transparent",
+                        color: compositeMode === "raw" ? "#fff" : "rgba(255,255,255,0.6)",
+                        fontSize: "11px",
                         fontWeight: 600,
                         cursor: "pointer",
-                        transition: "all 0.2s ease",
                       }}
                     >
-                      {channelLabels[ch] ?? ch}
+                      Raw Spectral
                     </button>
-                  ))}
+                    <button
+                      onClick={() => setCompositeMode("dust_rgb")}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "7px",
+                        border: "none",
+                        backgroundColor: compositeMode === "dust_rgb" ? "#af52de" : "transparent",
+                        color: compositeMode === "dust_rgb" ? "#fff" : "rgba(255,255,255,0.6)",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Dust & Smog RGB
+                    </button>
+                    <button
+                      onClick={() => setCompositeMode("natural_color")}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "7px",
+                        border: "none",
+                        backgroundColor: compositeMode === "natural_color" ? "#30d158" : "transparent",
+                        color: compositeMode === "natural_color" ? "#fff" : "rgba(255,255,255,0.6)",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Natural Color Composite
+                    </button>
+                  </div>
                 </div>
 
                 {/* Scan Timeline */}
                 <div style={{ display: "flex", justifyContent: "center", gap: "4px", marginBottom: "20px", flexWrap: "wrap" }}>
                   {scans.map((scan, idx) => {
-                    const scanKey = `${scan.dateLabel}-${scan.utcTime}-${selectedChannel}`;
+                    const scanKey = `${scan.dateLabel}-${scan.utcTime}-${selectedChannel}-${compositeMode}`;
                     const isFailed = failedScans.has(scanKey);
                     return (
                       <button
                         key={`${scan.dateLabel}-${scan.utcTime}`}
-                        onClick={() => setSelectedScanIdx(idx)}
+                        onClick={() => {
+                          setIsPlaying(false);
+                          setSelectedScanIdx(idx);
+                        }}
                         style={{
                           padding: "6px 12px",
                           borderRadius: "8px",
@@ -473,9 +913,10 @@ export default function InsatPage() {
                         height: "100%",
                         objectFit: "contain",
                         opacity: imageLoaded && !currentFailed ? 1 : 0,
-                        transition: "opacity 0.4s ease",
+                        transition: "opacity 0.4s ease, filter 0.3s ease",
                         position: "absolute",
                         inset: 0,
+                        filter: getCompositeFilter(),
                       }}
                       onLoad={() => setImageLoaded(true)}
                       onError={handleImageError}
@@ -502,11 +943,16 @@ export default function InsatPage() {
                     >
                       <span style={{ color: "#2997ff", fontWeight: 600 }}>MOSDAC</span>
                       <span style={{ color: "rgba(255,255,255,0.5)" }}>
-                        {currentScan.dateLabel} · {currentScan.utcTime} UTC
+                        {currentScan.dateLabel} · {currentScan.utcTime} UTC ({currentScan.istTime})
                       </span>
                       <span style={{ color: "rgba(255,255,255,0.5)" }}>
                         {channelLabels[selectedChannel] ?? selectedChannel}
                       </span>
+                      {compositeMode !== "raw" && (
+                        <span style={{ color: compositeMode === "dust_rgb" ? "#af52de" : "#30d158", fontWeight: 600 }}>
+                          ● {compositeMode === "dust_rgb" ? "Dust/Smog RGB" : "Natural Color"}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -542,7 +988,7 @@ export default function InsatPage() {
                   }}
                 >
                   <span>Source: ISRO MOSDAC (mosdac.gov.in) · {satellite} Geostationary Meteorological Satellite</span>
-                  <span>Preview imagery for research / education use</span>
+                  <span>Composite blend simulates thermal IR extinction & visible reflectance</span>
                 </div>
               </div>
             )}

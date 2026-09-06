@@ -47,7 +47,7 @@ export interface RegionHotspot {
   description: string;
 }
 
-const REGION_SECTORS: RegionHotspot[] = [
+export const REGION_SECTORS: RegionHotspot[] = [
   {
     id: "delhi-ncr",
     name: "Delhi NCR",
@@ -228,14 +228,27 @@ const REGION_SECTORS: RegionHotspot[] = [
     status: "Low Aerosol",
     description: "Central Indian plains with expansive agricultural corridors and good wind dispersion.",
   },
+  {
+    id: "indore-plateau",
+    name: "Indore & Malwa",
+    zone: "Central Malwa Agricultural & Urban Sector",
+    lat: 22.7467,
+    lng: 75.8928,
+    zoom: 9,
+    state: "Madhya Pradesh",
+    baselineAod: 0.22,
+    status: "Clean",
+    description: "Central high plateau with excellent convective ventilation and consistently clean-to-moderate baseline air.",
+  },
 ];
 
 // Quick jump filter chips
-const QUICK_FILTERS = [
+export const QUICK_FILTERS = [
   { label: "All India", lat: 22.5, lng: 78.5, zoom: 5 },
   { label: "Indo-Gangetic Plain", lat: 27.5, lng: 80.5, zoom: 7 },
   { label: "Delhi NCR", lat: 28.6139, lng: 77.209, zoom: 9 },
   { label: "Punjab Belt", lat: 30.7333, lng: 76.2, zoom: 8 },
+  { label: "Indore & Central", lat: 22.7467, lng: 75.8928, zoom: 8 },
   { label: "Mumbai & West", lat: 20.5, lng: 73.5, zoom: 7 },
   { label: "Kolkata & East", lat: 23.5, lng: 87.5, zoom: 7 },
   { label: "Bengaluru & South", lat: 14.5, lng: 78.0, zoom: 7 },
@@ -276,6 +289,8 @@ export interface AodMapProps {
   opacity?: number;
   timeLabel?: string;
   dateLabel?: string;
+  selectedSectorId?: string | null;
+  onSectorSelect?: (sector: RegionHotspot) => void;
   weather?: {
     temperature: number;
     humidity: number;
@@ -304,6 +319,8 @@ export default function AodMap({
   opacity = 0.7,
   timeLabel,
   dateLabel,
+  selectedSectorId = null,
+  onSectorSelect,
   weather,
   fires = [],
 }: AodMapProps) {
@@ -506,11 +523,22 @@ export default function AodMap({
         leaflet.DomEvent.stopPropagation(e);
         setSelectedRegion(region);
         map.flyTo([region.lat, region.lng], region.zoom, { duration: 0.8 });
+        onSectorSelect?.(region);
       });
 
       markersRef.current.push(marker);
     });
-  }, [mapReady, selectedRegion, hoveredRegion]);
+  }, [mapReady, selectedRegion, hoveredRegion, onSectorSelect]);
+
+  // Sync external selectedSectorId prop
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !selectedSectorId) return;
+    const target = REGION_SECTORS.find((s) => s.id === selectedSectorId);
+    if (target) {
+      setSelectedRegion(target);
+      mapInstanceRef.current.flyTo([target.lat, target.lng], target.zoom, { duration: 0.8 });
+    }
+  }, [mapReady, selectedSectorId]);
 
   // ─── 4. Render NASA FIRMS Fire Hotspots ────────────────────────────────────
   useEffect(() => {
@@ -558,8 +586,11 @@ export default function AodMap({
         (r) => Math.abs(r.lat - filter.lat) < 0.1 && Math.abs(r.lng - filter.lng) < 0.1
       );
       setSelectedRegion(match ?? null);
+      if (match && onSectorSelect) {
+        onSectorSelect(match);
+      }
     },
-    []
+    [onSectorSelect]
   );
 
   // ─── Update Opacity ──────────────────────────────────────────────────────
