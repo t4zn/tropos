@@ -163,18 +163,23 @@ export default function CorridorMap({
             </span>
             <span>${station.aqi}</span>
           </div>
-          <div class="tropos-marker-title">${station.name}</div>
         </div>
       `;
 
       const icon = leaflet.divIcon({
         html: customHtml,
         className: "tropos-custom-pin",
-        iconSize: [64, 44],
-        iconAnchor: [32, 22],
+        iconSize: [48, 24],
+        iconAnchor: [24, 12],
       });
 
       const marker = leaflet.marker([station.lat, station.lng], { icon }).addTo(map);
+
+      marker.bindTooltip(station.name, {
+        direction: "top",
+        offset: [0, -14],
+        className: "tropos-tooltip",
+      });
 
       marker.on("click", (e) => {
         leaflet.DomEvent.stopPropagation(e);
@@ -302,7 +307,7 @@ export default function CorridorMap({
               <span style={{ fontSize: "13px", fontWeight: 600 }}>{activeStation.name}</span>
             </div>
             <div style={{ fontSize: "11px", color: "#8e8e93", marginTop: "2px" }}>
-              {activeStation.status} · {activeStation.source === "google" ? "CPCB" : "CAMS"}
+              {activeStation.status} · {activeStation.provider || (activeStation.source === "openaq" ? "OpenAQ" : "CPCB")}
             </div>
           </div>
 

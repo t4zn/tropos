@@ -79,7 +79,7 @@ export default function CorridorPage() {
             </h1>
 
             <p className="corridor-subtitle">
-              Real-time air quality across the Delhi-NCR corridor.
+              Live real-time air quality telemetry across the Delhi-NCR airshed.
             </p>
           </div>
         </section>
@@ -118,6 +118,26 @@ export default function CorridorPage() {
               </div>
               <div className="corridor-stat-label">
                 Stations
+              </div>
+            </div>
+
+            <div style={{ width: "1px", backgroundColor: "#e5e5e5", alignSelf: "stretch" }} />
+
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, color: "#16a34a" }}>
+                <span
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: "#16a34a",
+                    animation: "pulse-live 2s infinite",
+                  }}
+                />
+                Live Network
+              </div>
+              <div className="corridor-stat-label">
+                Real-Time Telemetry
               </div>
             </div>
 
@@ -191,10 +211,27 @@ export default function CorridorPage() {
             {selectedStation && (
               <div className="corridor-inspector-card">
                 {/* Close button */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                   <div>
-                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#0066cc", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
-                      Station
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: "#0066cc", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Station
+                      </span>
+                      {selectedStation.provider && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            color: "#0066cc",
+                            backgroundColor: "#f0f7ff",
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                            border: "0.5px solid #d0e5ff",
+                          }}
+                        >
+                          {selectedStation.provider}
+                        </span>
+                      )}
                     </div>
                     <h3 style={{ fontSize: "20px", fontWeight: 600, color: "#1d1d1f", letterSpacing: "-0.3px", lineHeight: 1.15 }}>
                       {selectedStation.name}
@@ -227,8 +264,8 @@ export default function CorridorPage() {
                     display: "flex",
                     alignItems: "baseline",
                     gap: "12px",
-                    marginBottom: "24px",
-                    paddingBottom: "20px",
+                    marginBottom: "20px",
+                    paddingBottom: "16px",
                     borderBottom: "1px solid #f0f0f0",
                   }}
                 >
@@ -248,7 +285,7 @@ export default function CorridorPage() {
                       {selectedStation.status}
                     </div>
                     <div style={{ fontSize: "12px", color: "#7a7a7a", marginTop: "1px" }}>
-                      India CPCB AQI
+                      India CPCB NAQI
                     </div>
                   </div>
                 </div>
@@ -256,20 +293,38 @@ export default function CorridorPage() {
                 {/* Metrics */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", flex: 1 }}>
                   <MetricCell label="PM2.5" value={`${selectedStation.pm25}`} unit="µg/m³" />
-                  <MetricCell label="PM10" value={`${selectedStation.pm10}`} unit="µg/m³" />
+                  <MetricCell
+                    label="PM10"
+                    value={selectedStation.pm10 > 0 ? `${selectedStation.pm10}` : "—"}
+                    unit={selectedStation.pm10 > 0 ? "µg/m³" : "unmeasured"}
+                  />
                   <MetricCell label="Wind" value={`${selectedStation.windSpeed}`} unit={`km/h ${selectedStation.windDir}`} />
                   <MetricCell label="Boundary Layer" value={`${selectedStation.boundaryLayerHeight}`} unit="m" />
                   <MetricCell label="Temperature" value={`${selectedStation.temperature}`} unit="°C" />
                   <MetricCell label="Humidity" value={`${selectedStation.humidity}`} unit="%" />
                 </div>
 
+                {/* Observation time */}
+                {selectedStation.observationTime && (
+                  <div style={{ fontSize: "11px", color: "#6e6e73", marginTop: "14px", display: "flex", alignItems: "center", gap: "5px" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16a34a" }} />
+                    Telemetry observed: {new Date(selectedStation.observationTime).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                )}
+
                 {/* Source + Trace CTA */}
-                <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid #f0f0f0" }}>
+                <div style={{ marginTop: "auto", paddingTop: "16px", borderTop: "1px solid #f0f0f0" }}>
                   <div style={{ fontSize: "11px", color: "#7a7a7a", marginBottom: "12px" }}>
-                    Source: {selectedStation.source === "google" ? "Google Air Quality API" : "Open-Meteo CAMS"}
+                    Source: {selectedStation.source === "openweather"
+                      ? `OpenWeather Live (${selectedStation.provider || "Station Sensor"})`
+                      : selectedStation.source === "openaq"
+                      ? `OpenAQ v3 (${selectedStation.provider || "Ground Telemetry"})`
+                      : selectedStation.source === "google"
+                      ? "Google Air Quality API"
+                      : "Real-Time Telemetry"}
                   </div>
                   <Link
-                                      href={`/attribution?station=${selectedStation.id}`}
+                    href={`/attribution?station=${selectedStation.id}`}
                     style={{
                       display: "block",
                       textAlign: "center",
@@ -308,7 +363,7 @@ export default function CorridorPage() {
 
             {isLoading ? (
               <div className="corridor-loading-state">
-                Fetching live data from Open-Meteo…
+                Fetching real-time telemetry for Delhi-NCR stations…
               </div>
             ) : (
               <div className="corridor-table-card">
@@ -355,6 +410,24 @@ export default function CorridorPage() {
                               <span className="corridor-station-name">
                                 {station.name}
                               </span>
+                              {station.provider && (
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 600,
+                                    color: "#0066cc",
+                                    backgroundColor: "#f0f7ff",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    marginLeft: "8px",
+                                    border: "0.5px solid #d0e5ff",
+                                    letterSpacing: "0.2px",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {station.provider}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td

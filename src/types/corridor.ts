@@ -29,7 +29,11 @@ export interface CorridorStation {
   /** AQI severity category */
   status: "Good" | "Satisfactory" | "Moderate" | "Poor" | "Very Poor" | "Severe";
   /** Data source label */
-  source: "open-meteo" | "google" | "openaq" | "fallback";
+  source: "open-meteo" | "google" | "openaq" | "openweather" | "fallback";
+  /** Network/Provider name (e.g. CPCB, DPCC, IMD, US Embassy) */
+  provider?: string;
+  /** ISO timestamp of direct sensor telemetry observation */
+  observationTime?: string;
   /** ISO timestamp of data retrieval */
   updatedAt: string;
 }
