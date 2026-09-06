@@ -16,11 +16,15 @@ const KNOWN_STATIONS: { id: string; name: string; lat: number; lng: number }[] =
   { id: "DEL-RKP-03", name: "RK Puram", lat: 28.5632, lng: 77.1743 },
   { id: "DEL-PB-04", name: "Punjabi Bagh", lat: 28.6683, lng: 77.1167 },
   { id: "DEL-IGI-05", name: "IGI Airport T3", lat: 28.5562, lng: 77.0872 },
+  { id: "DEL-DTU-06", name: "DTU Rohini", lat: 28.7499, lng: 77.1115 },
   { id: "HAR-GGN-01", name: "Gurugram", lat: 28.4595, lng: 77.0266 },
+  { id: "HAR-FBD-01", name: "Faridabad", lat: 28.4089, lng: 77.3178 },
+  { id: "HAR-KRL-02", name: "Karnal Sector 12", lat: 29.6857, lng: 76.9905 },
   { id: "UP-NOI-01", name: "Noida Sec 62", lat: 28.6255, lng: 77.3695 },
   { id: "UP-GBN-02", name: "Greater Noida", lat: 28.4744, lng: 77.504 },
-  { id: "HAR-FBD-01", name: "Faridabad", lat: 28.4089, lng: 77.3178 },
-  { id: "DEL-DTU-06", name: "DTU Rohini", lat: 28.7499, lng: 77.1115 },
+  { id: "UP-GZB-03", name: "Ghaziabad Vasundhara", lat: 28.6692, lng: 77.3686 },
+  { id: "PUN-SGR-01", name: "Sangrur Central", lat: 30.2458, lng: 75.8421 },
+  { id: "PUN-LDH-02", name: "Ludhiana Focal Point", lat: 30.901, lng: 75.8573 },
 ];
 
 // ─── In-memory cache (simple TTL) ───────────────────────────────────────────
