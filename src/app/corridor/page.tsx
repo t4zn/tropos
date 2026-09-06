@@ -269,7 +269,7 @@ export default function CorridorPage() {
                     Source: {selectedStation.source === "google" ? "Google Air Quality API" : "Open-Meteo CAMS"}
                   </div>
                   <Link
-                    href="/attribution"
+                                      href={`/attribution?station=${selectedStation.id}`}
                     style={{
                       display: "block",
                       textAlign: "center",

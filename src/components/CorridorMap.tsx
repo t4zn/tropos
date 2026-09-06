@@ -47,12 +47,25 @@ interface CorridorMapProps {
   onSelectStation: (station: CorridorStation | null) => void;
   wind?: { speed: number; deg: number; dir: string } | null;
   isLive?: boolean;
+  // Optional overlays for attribution visualization
+  particlePaths?: Array<Array<{ lat: number; lng: number }>>;
+  envelope?: Array<{ lat: number; lng: number }>;
+  candidates?: Array<{ id: string; lat: number; lng: number; name: string }>;
+  highlightedSourceId?: string | null;
+  onMapReady?: (map: import("leaflet").Map) => void;
 }
 
 export default function CorridorMap({
   stations,
   selectedStation,
   onSelectStation,
+  wind,
+  isLive,
+  particlePaths,
+  envelope,
+  candidates,
+  highlightedSourceId,
+  onMapReady,
 }: CorridorMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
@@ -139,6 +152,9 @@ export default function CorridorMap({
       const color = statusColor(station.status);
       const isSevere = station.aqi > 200;
 
+      // debug: log station being rendered
+      try { console.log('[CorridorMap] addMarker', station.id, station.name, station.lat, station.lng, 'AQI', station.aqi); } catch(e){}
+
       const customHtml = `
         <div class="tropos-station-marker dark-mode ${isSelected ? "selected" : ""}" id="marker-${station.id}">
           <div class="tropos-marker-badge">
@@ -162,7 +178,10 @@ export default function CorridorMap({
 
       marker.on("click", (e) => {
         leaflet.DomEvent.stopPropagation(e);
-        onSelectStation(selectedStation?.id === station.id ? null : station);
+        try { console.log('[CorridorMap] marker.click', station.id, station.name); } catch(e){}
+        // toggle selection
+        if (selectedStation?.id === station.id) onSelectStation(null);
+        else onSelectStation(station);
       });
       marker.on("mouseover", () => setHoveredStation(station));
       marker.on("mouseout", () =>
@@ -185,6 +204,75 @@ export default function CorridorMap({
     if (!mapInstanceRef.current || !selectedStation) return;
     mapInstanceRef.current.flyTo([selectedStation.lat, selectedStation.lng], 12, { duration: 0.6 });
   }, [selectedStation]);
+
+  // ─── 4. Render attribution overlays (particles, envelope, candidates)
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !L) return;
+    const map = mapInstanceRef.current;
+    const leaflet = L;
+
+    // Clear previous overlay layers stored on map instance
+    const existingLayers = (map as any)._troposOverlayLayers as import("leaflet").Layer[] | undefined;
+    if (existingLayers) {
+      existingLayers.forEach((ly) => map.removeLayer(ly));
+    }
+    (map as any)._troposOverlayLayers = [];
+
+    // Draw particle paths
+    if (particlePaths && particlePaths.length > 0) {
+      particlePaths.forEach((path) => {
+        try {
+          const latlngs = path.map((p) => [p.lat, p.lng] as [number, number]);
+          const poly = leaflet.polyline(latlngs, { color: '#ffb84d', weight: 1, opacity: 0.7, pane: 'overlayPane' }).addTo(map);
+          (map as any)._troposOverlayLayers.push(poly);
+        } catch (e) {
+          // ignore render errors
+        }
+      });
+    }
+
+    // Draw envelope polygon
+    if (envelope && envelope.length > 2) {
+      try {
+        const latlngs = envelope.map((p) => [p.lat, p.lng] as [number, number]);
+        const poly = leaflet.polygon(latlngs, { color: '#ff7a59', weight: 1.5, opacity: 0.9, fillOpacity: 0.12 }).addTo(map);
+        (map as any)._troposOverlayLayers.push(poly);
+      } catch {}
+    }
+
+    // Draw candidate markers
+    if (candidates && candidates.length > 0) {
+      candidates.forEach((c) => {
+        try {
+          const m = leaflet.circleMarker([c.lat, c.lng], { radius: 6, color: '#2997ff', fillColor: '#2997ff', fillOpacity: 0.95 }).addTo(map);
+          (map as any)._troposOverlayLayers.push(m);
+        } catch {}
+      });
+    }
+
+    // Highlight probable source (if it matches a station id)
+    if (highlightedSourceId) {
+      const st = stations.find((s) => s.id === highlightedSourceId);
+      if (st) {
+        try {
+          const m = leaflet.circleMarker([st.lat, st.lng], { radius: 8, color: '#ff2d55', fillColor: '#ff2d55', fillOpacity: 0.98 }).addTo(map);
+          (map as any)._troposOverlayLayers.push(m);
+          // pan a little towards source for emphasis
+          // map.panTo([st.lat, st.lng]);
+        } catch {}
+      }
+    }
+
+    if (onMapReady) {
+      try { onMapReady(map); } catch {}
+    }
+
+    return () => {
+      const layers = (map as any)._troposOverlayLayers || [];
+      layers.forEach((ly: any) => map.removeLayer(ly));
+      (map as any)._troposOverlayLayers = [];
+    };
+  }, [mapReady, particlePaths, envelope, candidates, highlightedSourceId, stations, onMapReady]);
 
   return (
     <div
