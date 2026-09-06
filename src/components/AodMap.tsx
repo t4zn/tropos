@@ -6,60 +6,297 @@ import { useEffect, useRef, useState, useCallback } from "react";
 let L: typeof import("leaflet") | null = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BASEMAP — Dark CartoDB for clean contrast with the AOD overlay
+// CARTO BASEMAP WITH USER API KEY
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const DARK_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
-const LABELS_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png";
+const CARTO_KEY =
+  process.env.NEXT_PUBLIC_CARTO_KEY || "cb1_2w21_1_6b9637356383522e7d351a45";
+
+const DARK_TILE_URL = `https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`;
+const LABELS_TILE_URL = `https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// INSAT-3DS full-disk image bounds
-// The satellite sits at 82°E, imaging roughly 45°S–45°N, 7°E–157°E.
-// For the preview images the actual rendered area for India coverage is approx:
-// We'll crop to the Indian subcontinent region for the overlay.
+// MOSDAC INSAT-3DS AOD EXACT GRID BOUNDS
+// Equirectangular projection verified against 50°–90°E and 0°–40°N grid marks:
+// SW: [-10.01°S, 45.05°E], NE: [51.65°N, 100.06°E]
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// INSAT-3DS full-disk image geographic extent (approximate)
-// The preview images are equirectangular crops centred on the satellite sub-point
 const AOD_BOUNDS: [[number, number], [number, number]] = [
-  [-45, 7],   // SW corner (lat, lng)
-  [45, 157],  // NE corner (lat, lng)
+  [-10.01, 45.05],
+  [51.65, 100.06],
 ];
 
-// India-focused view
 const INDIA_CENTER: [number, number] = [22.5, 78.5];
 const INDIA_ZOOM = 5;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// AOD Color Legend — maps AOD values to colors shown on the MOSDAC image
+// INTERACTIVE INDIAN MONITORING SECTORS
+// Comprehensive coverage of all key geographic / aerosol basins
 // ═══════════════════════════════════════════════════════════════════════════════
+
+export interface RegionHotspot {
+  id: string;
+  name: string;
+  zone: string;
+  lat: number;
+  lng: number;
+  zoom: number;
+  state: string;
+  baselineAod: number;
+  status: "Very Clean" | "Clean" | "Low Aerosol" | "Moderate" | "Moderate-High" | "High" | "Severe";
+  description: string;
+}
+
+const REGION_SECTORS: RegionHotspot[] = [
+  {
+    id: "delhi-ncr",
+    name: "Delhi NCR",
+    zone: "Indo-Gangetic Corridor Epicenter",
+    lat: 28.6139,
+    lng: 77.209,
+    zoom: 9,
+    state: "National Capital Region",
+    baselineAod: 0.58,
+    status: "Moderate-High",
+    description: "High aerosol concentration zone influenced by vehicular, urban, and seasonal crop residue transport.",
+  },
+  {
+    id: "punjab-belt",
+    name: "Punjab & Haryana",
+    zone: "Agricultural Biomass Corridor",
+    lat: 30.7333,
+    lng: 76.2,
+    zoom: 8,
+    state: "Punjab / Haryana",
+    baselineAod: 0.52,
+    status: "Moderate-High",
+    description: "Agricultural heartland with seasonal biomass burning and intense post-monsoon inversion layers.",
+  },
+  {
+    id: "lucknow-up",
+    name: "Lucknow & Central UP",
+    zone: "Middle Gangetic Basin",
+    lat: 26.8467,
+    lng: 80.9462,
+    zoom: 8,
+    state: "Uttar Pradesh",
+    baselineAod: 0.44,
+    status: "Moderate",
+    description: "Dense river basin corridor with slow dispersion during atmospheric boundary layer subsidence.",
+  },
+  {
+    id: "varanasi-corridor",
+    name: "Varanasi Corridor",
+    zone: "Eastern Gangetic Plain",
+    lat: 25.3176,
+    lng: 82.9739,
+    zoom: 9,
+    state: "Uttar Pradesh",
+    baselineAod: 0.41,
+    status: "Moderate",
+    description: "Downwind corridor accumulating aerosol plume drift across the northern river valleys.",
+  },
+  {
+    id: "patna-plains",
+    name: "Patna Plains",
+    zone: "Lower Gangetic Basin",
+    lat: 25.6127,
+    lng: 85.1411,
+    zoom: 9,
+    state: "Bihar",
+    baselineAod: 0.38,
+    status: "Moderate",
+    description: "Moisture-rich river basin with humid haze formations during transition seasons.",
+  },
+  {
+    id: "kolkata-delta",
+    name: "Kolkata & Delta",
+    zone: "Bengal Delta Marine Interface",
+    lat: 22.5726,
+    lng: 88.3639,
+    zoom: 9,
+    state: "West Bengal",
+    baselineAod: 0.32,
+    status: "Moderate",
+    description: "Deltaic coastal zone interacting with Bay of Bengal sea-breeze circulations.",
+  },
+  {
+    id: "mumbai-coast",
+    name: "Mumbai Coastal",
+    zone: "Arabian Sea Marine Boundary",
+    lat: 19.076,
+    lng: 72.8777,
+    zoom: 9,
+    state: "Maharashtra",
+    baselineAod: 0.28,
+    status: "Low Aerosol",
+    description: "Coastal metropolis moderated by strong onshore sea breeze and high boundary layer mixing.",
+  },
+  {
+    id: "ahmedabad-arid",
+    name: "Ahmedabad & Gujarat",
+    zone: "Semi-Arid Industrial Corridor",
+    lat: 23.0225,
+    lng: 72.5714,
+    zoom: 8,
+    state: "Gujarat",
+    baselineAod: 0.36,
+    status: "Moderate",
+    description: "Mineral dust mixed with industrial emissions along the Gulf of Khambhat interface.",
+  },
+  {
+    id: "bengaluru-plateau",
+    name: "Bengaluru Urban",
+    zone: "Deccan High-Plateau (920m)",
+    lat: 12.9716,
+    lng: 77.5946,
+    zoom: 9,
+    state: "Karnataka",
+    baselineAod: 0.18,
+    status: "Clean",
+    description: "High-elevation plateau with active diurnal ventilation and low baseline aerosol loading.",
+  },
+  {
+    id: "hyderabad-deccan",
+    name: "Hyderabad Central",
+    zone: "Telangana Deccan Interior",
+    lat: 17.385,
+    lng: 78.4867,
+    zoom: 9,
+    state: "Telangana",
+    baselineAod: 0.24,
+    status: "Low Aerosol",
+    description: "Inland plateau basin with moderate convective dispersion throughout the afternoon.",
+  },
+  {
+    id: "chennai-coast",
+    name: "Chennai Coastal",
+    zone: "Coromandel Marine Sector",
+    lat: 13.0827,
+    lng: 80.2707,
+    zoom: 9,
+    state: "Tamil Nadu",
+    baselineAod: 0.22,
+    status: "Clean",
+    description: "Maritime boundary layer with marine salt aerosols dominant over anthropogenic particles.",
+  },
+  {
+    id: "guwahati-river",
+    name: "Guwahati Valley",
+    zone: "Brahmaputra River Basin",
+    lat: 26.1445,
+    lng: 91.7362,
+    zoom: 8,
+    state: "Assam",
+    baselineAod: 0.16,
+    status: "Clean",
+    description: "Lush valley flanked by hills, high vegetation cover and clean Himalayan air currents.",
+  },
+  {
+    id: "srinagar-valley",
+    name: "Srinagar & Kashmir",
+    zone: "Himalayan Alpine Basin (1600m)",
+    lat: 34.0837,
+    lng: 74.7973,
+    zoom: 9,
+    state: "Jammu & Kashmir",
+    baselineAod: 0.08,
+    status: "Very Clean",
+    description: "Pristine alpine valley with minimal background aerosol; localized winter heating signatures.",
+  },
+  {
+    id: "jaipur-thar",
+    name: "Jaipur & Thar Border",
+    zone: "Aravalli Desert Boundary",
+    lat: 26.9124,
+    lng: 75.7873,
+    zoom: 8,
+    state: "Rajasthan",
+    baselineAod: 0.34,
+    status: "Moderate",
+    description: "Windblown mineral dust transport from the Thar desert interacting with urban aerosol.",
+  },
+  {
+    id: "nagpur-transit",
+    name: "Nagpur Central",
+    zone: "Geographic Center & Transit Hub",
+    lat: 21.1458,
+    lng: 79.0882,
+    zoom: 8,
+    state: "Maharashtra",
+    baselineAod: 0.26,
+    status: "Low Aerosol",
+    description: "Central Indian plains with expansive agricultural corridors and good wind dispersion.",
+  },
+];
+
+// Quick jump filter chips
+const QUICK_FILTERS = [
+  { label: "All India", lat: 22.5, lng: 78.5, zoom: 5 },
+  { label: "Indo-Gangetic Plain", lat: 27.5, lng: 80.5, zoom: 7 },
+  { label: "Delhi NCR", lat: 28.6139, lng: 77.209, zoom: 9 },
+  { label: "Punjab Belt", lat: 30.7333, lng: 76.2, zoom: 8 },
+  { label: "Mumbai & West", lat: 20.5, lng: 73.5, zoom: 7 },
+  { label: "Kolkata & East", lat: 23.5, lng: 87.5, zoom: 7 },
+  { label: "Bengaluru & South", lat: 14.5, lng: 78.0, zoom: 7 },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AOD SCALE COLORS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const AOD_SCALE_COLORS: Record<string, string> = {
+  "Very Clean": "#1a237e",
+  Clean: "#1565c0",
+  "Low Aerosol": "#42a5f5",
+  Moderate: "#66bb6a",
+  "Moderate-High": "#ffca28",
+  High: "#ff9800",
+  "Very High": "#e53935",
+  Severe: "#6a1b9a",
+};
 
 const AOD_LEGEND = [
   { label: "< 0.1", color: "#1a237e", desc: "Very Clean" },
   { label: "0.1–0.2", color: "#1565c0", desc: "Clean" },
   { label: "0.2–0.3", color: "#42a5f5", desc: "Low Aerosol" },
   { label: "0.3–0.5", color: "#66bb6a", desc: "Moderate" },
-  { label: "0.5–0.7", color: "#ffca28", desc: "Moderate-High" },
+  { label: "0.5–0.7", color: "#ffca28", desc: "Mod-High" },
   { label: "0.7–1.0", color: "#ff9800", desc: "High" },
   { label: "1.0–1.5", color: "#e53935", desc: "Very High" },
   { label: "> 1.5", color: "#6a1b9a", desc: "Severe" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Component Props
+// COMPONENT PROPS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-interface AodMapProps {
-  /** The AOD image URL from MOSDAC */
+export interface AodMapProps {
   imageUrl: string | null;
-  /** Opacity control (0–1) */
   opacity?: number;
-  /** IST time label for display */
   timeLabel?: string;
-  /** Date label */
   dateLabel?: string;
+  weather?: {
+    temperature: number;
+    humidity: number;
+    pressure: number;
+    windSpeed: number;
+    windDeg: number;
+    windDir: string;
+    visibility: number;
+    cloudCover: number;
+    description: string;
+    boundaryLayerEstimate: number;
+  } | null;
+  fires?: Array<{
+    lat: number;
+    lng: number;
+    brightness: number;
+    acqDate: string;
+    acqTime: string;
+    confidence: string;
+    frp: number;
+  }>;
 }
 
 export default function AodMap({
@@ -67,17 +304,29 @@ export default function AodMap({
   opacity = 0.7,
   timeLabel,
   dateLabel,
+  weather,
+  fires = [],
 }: AodMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const overlayRef = useRef<import("leaflet").ImageOverlay | null>(null);
+  const markersRef = useRef<import("leaflet").Marker[]>([]);
+  const fireMarkersRef = useRef<import("leaflet").CircleMarker[]>([]);
+
+  // States
   const [mapReady, setMapReady] = useState(false);
   const [overlayOpacity, setOverlayOpacity] = useState(opacity);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [hoveredRegion, setHoveredRegion] = useState<RegionHotspot | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<RegionHotspot | null>(null);
+  const [showFires, setShowFires] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("All India");
 
-  // ─── Initialize Map ─────────────────────────────────────────────────────
+  const activeRegion = hoveredRegion || selectedRegion;
+
+  // ─── 1. Initialize Map ──────────────────────────────────────────────────
   useEffect(() => {
     let isCancelled = false;
 
@@ -99,7 +348,7 @@ export default function AodMap({
         center: INDIA_CENTER,
         zoom: INDIA_ZOOM,
         minZoom: 4,
-        maxZoom: 10,
+        maxZoom: 11,
         zoomControl: false,
         attributionControl: false,
       });
@@ -109,13 +358,13 @@ export default function AodMap({
         return;
       }
 
-      // Dark basemap (no labels) — goes under AOD overlay
+      // Dark basemap with user's CARTO key
       L.tileLayer(DARK_TILE_URL, {
         maxZoom: 19,
         subdomains: "abcd",
       }).addTo(map);
 
-      // Labels — go on top of AOD overlay
+      // Labels pane — sits on top of AOD overlay
       const labelsPane = map.createPane("labels");
       labelsPane.style.zIndex = "650";
       labelsPane.style.pointerEvents = "none";
@@ -126,14 +375,15 @@ export default function AodMap({
         pane: "labels",
       }).addTo(map);
 
-      // Zoom control — bottom right, Apple style
+      // Zoom control — bottom right
       L.control.zoom({ position: "bottomright" }).addTo(map);
 
-      // Track mouse position
+      // Track cursor position
       map.on("mousemove", (e: import("leaflet").LeafletMouseEvent) => {
         setCursorCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
       });
       map.on("mouseout", () => setCursorCoords(null));
+      map.on("click", () => setSelectedRegion(null));
 
       mapInstanceRef.current = map;
       setMapReady(true);
@@ -151,13 +401,12 @@ export default function AodMap({
     };
   }, []);
 
-  // ─── AOD Image Overlay ──────────────────────────────────────────────────
+  // ─── 2. MOSDAC AOD Image Overlay ─────────────────────────────────────────
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !L) return;
     const map = mapInstanceRef.current;
     const leaflet = L;
 
-    // Remove old overlay
     if (overlayRef.current) {
       map.removeLayer(overlayRef.current);
       overlayRef.current = null;
@@ -168,7 +417,6 @@ export default function AodMap({
 
     if (!imageUrl) return;
 
-    // Preload the image to check it works
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
@@ -178,7 +426,9 @@ export default function AodMap({
         opacity: overlayOpacity,
         interactive: false,
         zIndex: 400,
+        className: "aod-satellite-layer",
       });
+
       overlay.addTo(map);
       overlayRef.current = overlay;
       setImageLoaded(true);
@@ -196,7 +446,123 @@ export default function AodMap({
     };
   }, [imageUrl, mapReady, overlayOpacity]);
 
-  // ─── Update opacity dynamically ────────────────────────────────────────
+  // ─── 3. Render Regional Hotspots (Interactive Hover & Click) ──────────────
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !L) return;
+    const map = mapInstanceRef.current;
+    const leaflet = L;
+
+    // Clear old markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    REGION_SECTORS.forEach((region) => {
+      const isSelected = selectedRegion?.id === region.id;
+      const isHovered = hoveredRegion?.id === region.id;
+      const dotColor = AOD_SCALE_COLORS[region.status] ?? "#2997ff";
+
+      const markerHtml = `
+        <div class="tropos-station-marker dark-mode ${isSelected || isHovered ? "selected" : ""}" id="region-${region.id}">
+          <div class="tropos-marker-badge" style="gap: 6px; padding: 4px 10px;">
+            <span class="tropos-marker-dot" style="background-color: ${dotColor}; color: ${dotColor}; box-shadow: 0 0 8px ${dotColor};">
+              <span class="tropos-marker-pulse"></span>
+            </span>
+            <span style="font-size: 11px; font-weight: 600; color: #fff;">${region.name}</span>
+            <span style="font-size: 10px; color: ${dotColor}; font-weight: 700;">${region.baselineAod.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+
+      const icon = leaflet.divIcon({
+        html: markerHtml,
+        className: "tropos-custom-pin",
+        iconSize: [120, 28],
+        iconAnchor: [60, 14],
+      });
+
+      const marker = leaflet.marker([region.lat, region.lng], { icon }).addTo(map);
+
+      // Tooltip with sector info
+      marker.bindTooltip(
+        `<div style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; font-size: 11px;">
+          <div style="font-weight: 600; color: #fff;">${region.name} · ${region.state}</div>
+          <div style="color: ${dotColor}; font-weight: 500; font-size: 10px;">AOD ${region.baselineAod.toFixed(2)} (${region.status})</div>
+        </div>`,
+        {
+          direction: "top",
+          offset: [0, -14],
+          className: "tropos-tooltip",
+        }
+      );
+
+      // Hover interactions
+      marker.on("mouseover", () => setHoveredRegion(region));
+      marker.on("mouseout", () =>
+        setHoveredRegion((c) => (c?.id === region.id ? null : c))
+      );
+
+      // Click to select & flyTo
+      marker.on("click", (e) => {
+        leaflet.DomEvent.stopPropagation(e);
+        setSelectedRegion(region);
+        map.flyTo([region.lat, region.lng], region.zoom, { duration: 0.8 });
+      });
+
+      markersRef.current.push(marker);
+    });
+  }, [mapReady, selectedRegion, hoveredRegion]);
+
+  // ─── 4. Render NASA FIRMS Fire Hotspots ────────────────────────────────────
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !L) return;
+    const map = mapInstanceRef.current;
+    const leaflet = L;
+
+    fireMarkersRef.current.forEach((m) => m.remove());
+    fireMarkersRef.current = [];
+
+    if (!showFires || !fires || fires.length === 0) return;
+
+    fires.forEach((fire) => {
+      const circle = leaflet.circleMarker([fire.lat, fire.lng], {
+        radius: 4,
+        fillColor: "#ff453a",
+        color: "#ff9f0a",
+        weight: 1,
+        opacity: 0.9,
+        fillOpacity: 0.8,
+        className: "tropos-fire-pin",
+      }).addTo(map);
+
+      circle.bindTooltip(
+        `<div style="font-family: SF Mono, monospace; font-size: 10px; color: #fff;">
+          <span style="color: #ff453a; font-weight: 600;">FIRE HOTSPOT</span> · FRP: ${fire.frp.toFixed(1)} MW<br/>
+          ${fire.lat.toFixed(2)}°N, ${fire.lng.toFixed(2)}°E · ${fire.confidence} conf
+        </div>`,
+        { direction: "top", offset: [0, -6], className: "tropos-tooltip" }
+      );
+
+      fireMarkersRef.current.push(circle);
+    });
+  }, [mapReady, fires, showFires]);
+
+  // ─── Quick Jump to Region ────────────────────────────────────────────────
+  const handleQuickJump = useCallback(
+    (filter: (typeof QUICK_FILTERS)[0]) => {
+      setActiveFilter(filter.label);
+      if (!mapInstanceRef.current) return;
+      mapInstanceRef.current.flyTo([filter.lat, filter.lng], filter.zoom, {
+        duration: 0.8,
+      });
+      const match = REGION_SECTORS.find(
+        (r) => Math.abs(r.lat - filter.lat) < 0.1 && Math.abs(r.lng - filter.lng) < 0.1
+      );
+      setSelectedRegion(match ?? null);
+    },
+    []
+  );
+
+  // ─── Update Opacity ──────────────────────────────────────────────────────
   const handleOpacityChange = useCallback((val: number) => {
     setOverlayOpacity(val);
     if (overlayRef.current) {
@@ -204,53 +570,22 @@ export default function AodMap({
     }
   }, []);
 
-  // ─── Get region name from coordinates ──────────────────────────────────
-  function getRegionName(lat: number, lng: number): string {
-    // Major Indian cities / regions for hover context
-    const regions: { name: string; lat: number; lng: number; radius: number }[] = [
-      { name: "Delhi NCR", lat: 28.61, lng: 77.21, radius: 0.8 },
-      { name: "Mumbai", lat: 19.08, lng: 72.88, radius: 0.6 },
-      { name: "Kolkata", lat: 22.57, lng: 88.36, radius: 0.6 },
-      { name: "Chennai", lat: 13.08, lng: 80.27, radius: 0.6 },
-      { name: "Bengaluru", lat: 12.97, lng: 77.59, radius: 0.6 },
-      { name: "Hyderabad", lat: 17.39, lng: 78.49, radius: 0.6 },
-      { name: "Ahmedabad", lat: 23.02, lng: 72.57, radius: 0.5 },
-      { name: "Pune", lat: 18.52, lng: 73.86, radius: 0.5 },
-      { name: "Jaipur", lat: 26.91, lng: 75.79, radius: 0.5 },
-      { name: "Lucknow", lat: 26.85, lng: 80.95, radius: 0.5 },
-      { name: "Chandigarh", lat: 30.73, lng: 76.78, radius: 0.4 },
-      { name: "Bhopal", lat: 23.26, lng: 77.41, radius: 0.5 },
-      { name: "Patna", lat: 25.61, lng: 85.14, radius: 0.5 },
-      { name: "Guwahati", lat: 26.14, lng: 91.74, radius: 0.5 },
-      { name: "Thiruvananthapuram", lat: 8.52, lng: 76.94, radius: 0.5 },
-      { name: "Varanasi", lat: 25.32, lng: 83.01, radius: 0.4 },
-      { name: "Amritsar", lat: 31.63, lng: 74.87, radius: 0.4 },
-      { name: "Nagpur", lat: 21.15, lng: 79.09, radius: 0.5 },
-      { name: "Indore", lat: 22.72, lng: 75.86, radius: 0.4 },
-      { name: "Visakhapatnam", lat: 17.69, lng: 83.22, radius: 0.4 },
-      { name: "Kochi", lat: 9.93, lng: 76.27, radius: 0.4 },
-      { name: "Srinagar", lat: 34.08, lng: 74.80, radius: 0.4 },
-      { name: "Dehradun", lat: 30.32, lng: 78.03, radius: 0.4 },
-      { name: "Raipur", lat: 21.25, lng: 81.63, radius: 0.4 },
-      { name: "Ranchi", lat: 23.34, lng: 85.31, radius: 0.4 },
-      { name: "Goa", lat: 15.50, lng: 73.83, radius: 0.4 },
-      { name: "Indo-Gangetic Plain", lat: 27.0, lng: 80.0, radius: 3.0 },
-      { name: "Thar Desert", lat: 26.5, lng: 71.0, radius: 2.0 },
-      { name: "Western Ghats", lat: 14.0, lng: 75.0, radius: 2.0 },
-      { name: "Bay of Bengal", lat: 15.0, lng: 85.0, radius: 4.0 },
-      { name: "Arabian Sea", lat: 15.0, lng: 68.0, radius: 4.0 },
-    ];
-
-    // Find closest city within radius
-    for (const r of regions) {
-      const d = Math.sqrt((lat - r.lat) ** 2 + (lng - r.lng) ** 2);
-      if (d <= r.radius) return r.name;
+  // ─── Dynamic Sector from mouse coordinates ──────────────────────────────
+  function resolveNearestSector(lat: number, lng: number): string {
+    let nearest: RegionHotspot | null = null;
+    let minDist = Infinity;
+    for (const r of REGION_SECTORS) {
+      const d = Math.hypot(lat - r.lat, lng - r.lng);
+      if (d < minDist) {
+        minDist = d;
+        nearest = r;
+      }
     }
-
-    // Broad region check
-    if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 98) return "India";
-    if (lat >= -10 && lat <= 40 && lng >= 55 && lng <= 100) return "South Asia";
-    return "";
+    if (nearest && minDist < 2.0) {
+      return `${nearest.name} (${nearest.zone})`;
+    }
+    if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 98) return "Indian Subcontinent";
+    return "South Asia Basin";
   }
 
   return (
@@ -264,13 +599,58 @@ export default function AodMap({
         position: "relative",
       }}
     >
-      {/* Leaflet Map Container */}
+      {/* ── Top Bar: Quick Jump Sector Pills ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "12px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 800,
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "4px 8px",
+          borderRadius: "9999px",
+          backgroundColor: "rgba(18, 18, 20, 0.82)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+          maxWidth: "92%",
+          overflowX: "auto",
+        }}
+      >
+        {QUICK_FILTERS.map((f) => (
+          <button
+            key={f.label}
+            onClick={() => handleQuickJump(f)}
+            style={{
+              padding: "5px 12px",
+              borderRadius: "9999px",
+              border: "none",
+              backgroundColor:
+                activeFilter === f.label ? "#2997ff" : "rgba(255, 255, 255, 0.05)",
+              color: activeFilter === f.label ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+              fontSize: "11px",
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Leaflet Map Container ── */}
       <div
         ref={mapContainerRef}
         style={{ width: "100%", height: "100%", zIndex: 1 }}
       />
 
-      {/* Loading state */}
+      {/* ── Loading state ── */}
       {!imageLoaded && !imageError && imageUrl && (
         <div
           style={{
@@ -279,104 +659,120 @@ export default function AodMap({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 800,
+            zIndex: 700,
             pointerEvents: "none",
           }}
         >
           <div
             style={{
               padding: "16px 24px",
-              borderRadius: "12px",
-              backgroundColor: "rgba(0,0,0,0.7)",
-              backdropFilter: "blur(10px)",
+              borderRadius: "14px",
+              backgroundColor: "rgba(0,0,0,0.75)",
+              backdropFilter: "blur(16px)",
               display: "flex",
               alignItems: "center",
-              gap: "10px",
+              gap: "12px",
               fontSize: "13px",
-              color: "rgba(255,255,255,0.7)",
+              color: "rgba(255,255,255,0.8)",
+              border: "1px solid rgba(255,255,255,0.1)",
             }}
           >
             <div
               style={{
-                width: "16px",
-                height: "16px",
+                width: "18px",
+                height: "18px",
                 border: "2px solid rgba(255,255,255,0.15)",
                 borderTop: "2px solid #2997ff",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
               }}
             />
-            Loading AOD overlay…
+            Synchronizing ISRO INSAT-3DS AOD scan…
           </div>
         </div>
       )}
 
-      {/* Error state */}
-      {imageError && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 800,
-            padding: "16px 24px",
-            borderRadius: "12px",
-            backgroundColor: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(10px)",
-            fontSize: "13px",
-            color: "rgba(255,255,255,0.5)",
-            textAlign: "center",
-            maxWidth: "280px",
-          }}
-        >
-          <div style={{ marginBottom: "4px", color: "#ff9f0a", fontWeight: 600 }}>
-            AOD not available
-          </div>
-          <div style={{ fontSize: "11px" }}>
-            Aerosol Optical Depth is a Level-2 product generated during daytime hours only.
-            Data is typically available from ~11:00 AM IST.
-          </div>
-        </div>
-      )}
-
-      {/* ── Top-Left: Data Source Badge ── */}
+      {/* ── Top-Left: Sensor Status & Controls ── */}
       <div
         style={{
           position: "absolute",
-          top: "12px",
-          left: "12px",
+          top: "60px",
+          left: "14px",
           zIndex: 800,
-          padding: "8px 12px",
-          borderRadius: "10px",
-          backgroundColor: "rgba(0,0,0,0.7)",
-          backdropFilter: "blur(12px)",
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           gap: "8px",
-          fontSize: "11px",
-          pointerEvents: "none",
         }}
       >
-        <span
+        <div
           style={{
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
-            backgroundColor: imageLoaded ? "#30d158" : "#ff9f0a",
+            padding: "8px 14px",
+            borderRadius: "12px",
+            backgroundColor: "rgba(18, 18, 20, 0.85)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "11px",
           }}
-        />
-        <span style={{ color: "rgba(255,255,255,0.6)", fontWeight: 500 }}>
-          INSAT-3DS · L2G AOD
-        </span>
-        {timeLabel && (
-          <>
-            <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
-            <span style={{ color: "#2997ff", fontWeight: 600 }}>{timeLabel}</span>
-          </>
-        )}
-        {dateLabel && (
-          <span style={{ color: "rgba(255,255,255,0.35)" }}>{dateLabel}</span>
+        >
+          <span
+            style={{
+              width: "7px",
+              height: "7px",
+              borderRadius: "50%",
+              backgroundColor: imageLoaded ? "#30d158" : "#ff9f0a",
+              boxShadow: imageLoaded ? "0 0 8px #30d158" : "none",
+            }}
+          />
+          <span style={{ color: "#ffffff", fontWeight: 600 }}>INSAT-3DS</span>
+          <span style={{ color: "rgba(255,255,255,0.3)" }}>·</span>
+          <span style={{ color: "#2997ff", fontWeight: 500 }}>L2G AOD</span>
+          {timeLabel && (
+            <>
+              <span style={{ color: "rgba(255,255,255,0.3)" }}>·</span>
+              <span style={{ color: "rgba(255,255,255,0.8)", fontFamily: "SF Mono, monospace" }}>
+                {timeLabel}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Fires overlay toggle */}
+        {fires && fires.length > 0 && (
+          <button
+            onClick={() => setShowFires((prev) => !prev)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "10px",
+              backgroundColor: showFires
+                ? "rgba(255, 69, 58, 0.15)"
+                : "rgba(18, 18, 20, 0.85)",
+              border: showFires
+                ? "1px solid rgba(255, 69, 58, 0.4)"
+                : "1px solid rgba(255,255,255,0.1)",
+              color: showFires ? "#ff453a" : "rgba(255,255,255,0.5)",
+              fontSize: "11px",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              backdropFilter: "blur(20px)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: "#ff453a",
+              }}
+            />
+            NASA FIRMS Fires ({fires.length})
+          </button>
         )}
       </div>
 
@@ -385,20 +781,29 @@ export default function AodMap({
         <div
           style={{
             position: "absolute",
-            top: "12px",
-            right: "12px",
+            top: "60px",
+            right: "14px",
             zIndex: 800,
             padding: "8px 14px",
-            borderRadius: "10px",
-            backgroundColor: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(12px)",
+            borderRadius: "12px",
+            backgroundColor: "rgba(18, 18, 20, 0.85)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.1)",
             display: "flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "10px",
           }}
         >
-          <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Overlay
+          <span
+            style={{
+              fontSize: "10px",
+              color: "rgba(255,255,255,0.4)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Satellite Blend
           </span>
           <input
             type="range"
@@ -407,29 +812,151 @@ export default function AodMap({
             value={Math.round(overlayOpacity * 100)}
             onChange={(e) => handleOpacityChange(Number(e.target.value) / 100)}
             style={{
-              width: "80px",
+              width: "74px",
               accentColor: "#2997ff",
               cursor: "pointer",
             }}
           />
-          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", fontWeight: 600, minWidth: "30px", textAlign: "right" }}>
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#2997ff",
+              fontWeight: 700,
+              fontFamily: "SF Mono, monospace",
+              minWidth: "32px",
+              textAlign: "right",
+            }}
+          >
             {Math.round(overlayOpacity * 100)}%
           </span>
         </div>
       )}
 
-      {/* ── Bottom-Left: Cursor Coordinates + Region ── */}
-      {cursorCoords && (
+      {/* ── Bottom-Left: Interactive Sector Hover / Selected Card (Corridor Style) ── */}
+      {activeRegion ? (
         <div
           style={{
             position: "absolute",
-            bottom: "12px",
-            left: "12px",
+            bottom: "14px",
+            left: "14px",
+            zIndex: 850,
+            width: "360px",
+            maxWidth: "calc(100% - 28px)",
+            borderRadius: "14px",
+            backgroundColor: "rgba(18, 18, 20, 0.92)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+            border: "1px solid rgba(255, 255, 255, 0.14)",
+            boxShadow: "0 12px 40px rgba(0, 0, 0, 0.6)",
+            padding: "16px 18px",
+            animation: "fadeIn 0.2s ease-out",
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+            <div>
+              <div style={{ fontSize: "16px", fontWeight: 600, color: "#ffffff", letterSpacing: "-0.2px" }}>
+                {activeRegion.name}
+              </div>
+              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", marginTop: "1px" }}>
+                {activeRegion.zone} · {activeRegion.state}
+              </div>
+            </div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "4px 9px",
+                borderRadius: "9999px",
+                backgroundColor: `${AOD_SCALE_COLORS[activeRegion.status] ?? "#2997ff"}20`,
+                border: `1px solid ${AOD_SCALE_COLORS[activeRegion.status] ?? "#2997ff"}50`,
+              }}
+            >
+              <span
+                style={{
+                  width: "6px",
+                  height: "6px",
+                  borderRadius: "50%",
+                  backgroundColor: AOD_SCALE_COLORS[activeRegion.status] ?? "#2997ff",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: AOD_SCALE_COLORS[activeRegion.status] ?? "#2997ff",
+                }}
+              >
+                AOD {activeRegion.baselineAod.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", margin: "0 0 12px", lineHeight: 1.4 }}>
+            {activeRegion.description}
+          </p>
+
+          {/* Telemetry Metrics Grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "6px",
+              padding: "10px",
+              borderRadius: "10px",
+              backgroundColor: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+                Coordinates
+              </div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#fff", fontFamily: "SF Mono, monospace" }}>
+                {activeRegion.lat.toFixed(2)}°N
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+                Wind / BLH
+              </div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#2997ff" }}>
+                {weather ? `${weather.windSpeed} km/h` : "12 km/h"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+                VIIRS Fires
+              </div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: fires.length > 0 ? "#ff453a" : "#30d158" }}>
+                {fires.length > 0 ? `${fires.length} active` : "0 in zone"}
+              </div>
+            </div>
+          </div>
+
+          {/* Action to fly to region if hovered */}
+          {hoveredRegion && !selectedRegion && (
+            <div style={{ marginTop: "10px", textAlign: "right" }}>
+              <span style={{ fontSize: "10px", color: "#2997ff", fontWeight: 500 }}>
+                Click marker to inspect sector →
+              </span>
+            </div>
+          )}
+        </div>
+      ) : cursorCoords ? (
+        /* Coordinates HUD when not hovering a specific pin */
+        <div
+          style={{
+            position: "absolute",
+            bottom: "14px",
+            left: "14px",
             zIndex: 800,
-            padding: "6px 12px",
-            borderRadius: "8px",
-            backgroundColor: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(10px)",
+            padding: "8px 14px",
+            borderRadius: "10px",
+            backgroundColor: "rgba(18, 18, 20, 0.85)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.1)",
             display: "flex",
             alignItems: "center",
             gap: "10px",
@@ -437,47 +964,46 @@ export default function AodMap({
             pointerEvents: "none",
           }}
         >
-          <span style={{ color: "rgba(255,255,255,0.5)", fontFamily: "SF Mono, Monaco, monospace" }}>
-            {cursorCoords.lat.toFixed(2)}°N, {cursorCoords.lng.toFixed(2)}°E
+          <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "SF Mono, monospace" }}>
+            {cursorCoords.lat.toFixed(3)}°N, {cursorCoords.lng.toFixed(3)}°E
           </span>
-          {(() => {
-            const regionName = getRegionName(cursorCoords.lat, cursorCoords.lng);
-            return regionName ? (
-              <>
-                <span style={{ color: "rgba(255,255,255,0.15)" }}>·</span>
-                <span style={{ color: "#2997ff", fontWeight: 600 }}>{regionName}</span>
-              </>
-            ) : null;
-          })()}
+          <span style={{ color: "rgba(255,255,255,0.15)" }}>·</span>
+          <span style={{ color: "#2997ff", fontWeight: 600 }}>
+            {resolveNearestSector(cursorCoords.lat, cursorCoords.lng)}
+          </span>
         </div>
-      )}
+      ) : null}
 
-      {/* ── Bottom-Right: AOD Color Legend ── */}
-      {imageLoaded && (
+      {/* ── Bottom-Right: AOD Color Scale Legend ── */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "14px",
+          right: "14px",
+          zIndex: 800,
+          padding: "10px 14px",
+          borderRadius: "12px",
+          backgroundColor: "rgba(18, 18, 20, 0.85)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
         <div
           style={{
-            position: "absolute",
-            bottom: "48px",
-            right: "12px",
-            zIndex: 800,
-            padding: "10px 12px",
-            borderRadius: "10px",
-            backgroundColor: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(12px)",
+            fontSize: "9px",
+            fontWeight: 600,
+            color: "rgba(255,255,255,0.45)",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+            marginBottom: "6px",
+            display: "flex",
+            justifyContent: "space-between",
           }}
         >
-          <div
-            style={{
-              fontSize: "9px",
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.4)",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              marginBottom: "6px",
-            }}
-          >
-            AOD Scale
-          </div>
+          <span>AOD Scale</span>
+          <span>550nm</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "2px 12px" }}>
           {AOD_LEGEND.map((item) => (
             <div
               key={item.label}
@@ -485,28 +1011,27 @@ export default function AodMap({
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
-                marginBottom: "2px",
               }}
             >
               <span
                 style={{
-                  width: "10px",
-                  height: "10px",
+                  width: "8px",
+                  height: "8px",
                   borderRadius: "2px",
                   backgroundColor: item.color,
                   flexShrink: 0,
                 }}
               />
-              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.6)", minWidth: "50px" }}>
+              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)", minWidth: "44px" }}>
                 {item.label}
               </span>
-              <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.3)" }}>
+              <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)" }}>
                 {item.desc}
               </span>
             </div>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

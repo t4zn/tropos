@@ -75,6 +75,7 @@ export default function InsatPage() {
   const { fires, corridorFireCount, isLoading: firmsLoading, error: firmsError, fetchedAt: firmsFetchedAt } = useFirmsData();
   const { weather, isLoading: wxLoading } = useWeatherData();
 
+  const [viewMode, setViewMode] = useState<"map" | "channels">("map");
   const [selectedScanIdx, setSelectedScanIdx] = useState(0);
   const [selectedChannel, setSelectedChannel] = useState<Channel>("IR1");
   const [selectedAodIdx, setSelectedAodIdx] = useState(0);
@@ -219,175 +220,331 @@ export default function InsatPage() {
           </div>
         </section>
 
-        {/* Satellite Imagery Viewer */}
+        {/* Primary Interactive Explorer Section */}
         <section style={{ padding: "0 0 64px", backgroundColor: "#0a0a0a" }}>
-          <div className="container" style={{ maxWidth: "1060px" }}>
-            {/* Channel Selector */}
-            <div style={{ display: "flex", justifyContent: "center", gap: "4px", marginBottom: "16px" }}>
-              {allChannels.map((ch) => (
+          <div className="container" style={{ maxWidth: "1080px" }}>
+            {/* View Mode Switcher (Apple-style pill) */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  padding: "4px",
+                  borderRadius: "9999px",
+                  backgroundColor: "rgba(255, 255, 255, 0.06)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  backdropFilter: "blur(20px)",
+                }}
+              >
                 <button
-                  key={ch}
-                  onClick={() => setSelectedChannel(ch)}
+                  onClick={() => setViewMode("map")}
                   style={{
-                    padding: "8px 18px",
+                    padding: "7px 18px",
                     borderRadius: "9999px",
                     border: "none",
-                    backgroundColor: selectedChannel === ch ? "#2997ff" : "rgba(255,255,255,0.06)",
-                    color: selectedChannel === ch ? "#fff" : "rgba(255,255,255,0.6)",
-                    fontSize: "13px",
+                    backgroundColor: viewMode === "map" ? "#2997ff" : "transparent",
+                    color: viewMode === "map" ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "7px",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      backgroundColor: viewMode === "map" ? "#ffffff" : "#2997ff",
+                    }}
+                  />
+                  Interactive Subcontinent Map (AOD + FIRMS)
+                </button>
+                <button
+                  onClick={() => setViewMode("channels")}
+                  style={{
+                    padding: "7px 18px",
+                    borderRadius: "9999px",
+                    border: "none",
+                    backgroundColor: viewMode === "channels" ? "#2997ff" : "transparent",
+                    color: viewMode === "channels" ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
+                    fontSize: "12px",
                     fontWeight: 600,
                     cursor: "pointer",
                     transition: "all 0.2s ease",
                   }}
                 >
-                  {channelLabels[ch] ?? ch}
+                  Multispectral Full-Disk (L1B)
                 </button>
-              ))}
+              </div>
             </div>
 
-            {/* Scan Timeline */}
-            <div style={{ display: "flex", justifyContent: "center", gap: "4px", marginBottom: "20px", flexWrap: "wrap" }}>
-              {scans.map((scan, idx) => {
-                const scanKey = `${scan.dateLabel}-${scan.utcTime}-${selectedChannel}`;
-                const isFailed = failedScans.has(scanKey);
-                return (
-                  <button
-                    key={`${scan.dateLabel}-${scan.utcTime}`}
-                    onClick={() => setSelectedScanIdx(idx)}
+            {viewMode === "map" ? (
+              /* ── View Mode A: Interactive Map (Primary) ── */
+              <div>
+                {/* AOD Time Scrubber */}
+                {aodScans.length > 0 && (
+                  <div
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      border: selectedScanIdx === idx
-                        ? "1px solid #2997ff"
-                        : "1px solid rgba(255,255,255,0.08)",
-                      backgroundColor: selectedScanIdx === idx
-                        ? "rgba(41, 151, 255, 0.12)"
-                        : "transparent",
-                      color: isFailed
-                        ? "rgba(255,255,255,0.2)"
-                        : selectedScanIdx === idx
-                        ? "#2997ff"
-                        : "rgba(255,255,255,0.5)",
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      textDecoration: isFailed ? "line-through" : "none",
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: "6px",
+                      marginBottom: "16px",
+                      flexWrap: "wrap",
+                      alignItems: "center",
                     }}
                   >
-                    {scan.istTime}
-                  </button>
-                );
-              })}
-              {satLoading && (
-                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)", alignSelf: "center", marginLeft: "8px" }}>
-                  Loading…
-                </span>
-              )}
-            </div>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.4)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        fontWeight: 600,
+                        marginRight: "4px",
+                      }}
+                    >
+                      Scan Slot:
+                    </span>
+                    {aodScans.map((aod, idx) => (
+                      <button
+                        key={`${aod.dateLabel}-${aod.utcTime}`}
+                        onClick={() => setSelectedAodIdx(idx)}
+                        style={{
+                          padding: "5px 14px",
+                          borderRadius: "8px",
+                          border:
+                            selectedAodIdx === idx
+                              ? "1px solid #2997ff"
+                              : "1px solid rgba(255,255,255,0.08)",
+                          backgroundColor:
+                            selectedAodIdx === idx
+                              ? "rgba(41, 151, 255, 0.14)"
+                              : "rgba(255,255,255,0.03)",
+                          color:
+                            selectedAodIdx === idx
+                              ? "#2997ff"
+                              : "rgba(255,255,255,0.6)",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {aod.istTime}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-            {/* Image Viewer */}
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "16 / 10",
-                borderRadius: "16px",
-                overflow: "hidden",
-                backgroundColor: "#111113",
-                border: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              {/* Loading spinner */}
-              {!imageLoaded && !currentFailed && currentImageUrl && (
-                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>
-                  <div style={{ width: "32px", height: "32px", border: "3px solid rgba(255,255,255,0.1)", borderTop: "3px solid #2997ff", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-                </div>
-              )}
-
-              {/* Image — always rendered so it can attempt loading; hidden until loaded */}
-              {currentImageUrl && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={currentKey}
-                  src={currentImageUrl}
-                  alt={`INSAT-3DS ${channelLabels[selectedChannel] ?? selectedChannel} scan at ${currentScan?.istTime}`}
+                {/* Interactive AOD Map */}
+                <div
                   style={{
                     width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    opacity: imageLoaded && !currentFailed ? 1 : 0,
-                    transition: "opacity 0.4s ease",
-                    position: "absolute",
-                    inset: 0,
+                    height: "600px",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    boxShadow: "0 20px 48px rgba(0,0,0,0.5)",
                   }}
-                  onLoad={() => setImageLoaded(true)}
-                  onError={handleImageError}
-                />
-              )}
+                >
+                  <AodMap
+                    imageUrl={currentAod?.url ?? null}
+                    opacity={0.7}
+                    timeLabel={currentAod?.istTime}
+                    dateLabel={currentAod?.dateLabel}
+                    weather={weather}
+                    fires={fires}
+                  />
+                </div>
 
-              {/* Metadata overlay (bottom-left) */}
-              {currentScan && imageLoaded && !currentFailed && (
                 <div
                   style={{
-                    position: "absolute",
-                    bottom: "16px",
-                    left: "16px",
-                    padding: "8px 14px",
-                    borderRadius: "10px",
-                    backgroundColor: "rgba(0,0,0,0.7)",
-                    backdropFilter: "blur(10px)",
+                    marginTop: "14px",
                     display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    gap: "12px",
-                    fontSize: "12px",
-                    zIndex: 3,
+                    fontSize: "11px",
+                    color: "rgba(255,255,255,0.25)",
                   }}
                 >
-                  <span style={{ color: "#2997ff", fontWeight: 600 }}>MOSDAC</span>
-                  <span style={{ color: "rgba(255,255,255,0.5)" }}>
-                    {currentScan.dateLabel} · {currentScan.utcTime} UTC
-                  </span>
-                  <span style={{ color: "rgba(255,255,255,0.5)" }}>
-                    {channelLabels[selectedChannel] ?? selectedChannel}
-                  </span>
+                  <span>Hover to inspect regional aerosol conditions · Click any hotspot marker to fly to sector</span>
+                  <span>ISRO MOSDAC Level-2 Geophysical Product · Authenticated CARTO Basemap</span>
                 </div>
-              )}
+              </div>
+            ) : (
+              /* ── View Mode B: Multispectral Full-Disk Channels ── */
+              <div>
+                {/* Channel Selector */}
+                <div style={{ display: "flex", justifyContent: "center", gap: "4px", marginBottom: "16px" }}>
+                  {allChannels.map((ch) => (
+                    <button
+                      key={ch}
+                      onClick={() => setSelectedChannel(ch)}
+                      style={{
+                        padding: "8px 18px",
+                        borderRadius: "9999px",
+                        border: "none",
+                        backgroundColor: selectedChannel === ch ? "#2997ff" : "rgba(255,255,255,0.06)",
+                        color: selectedChannel === ch ? "#fff" : "rgba(255,255,255,0.6)",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {channelLabels[ch] ?? ch}
+                    </button>
+                  ))}
+                </div>
 
-              {/* Data source (bottom-right) */}
-              {imageLoaded && !currentFailed && (
+                {/* Scan Timeline */}
+                <div style={{ display: "flex", justifyContent: "center", gap: "4px", marginBottom: "20px", flexWrap: "wrap" }}>
+                  {scans.map((scan, idx) => {
+                    const scanKey = `${scan.dateLabel}-${scan.utcTime}-${selectedChannel}`;
+                    const isFailed = failedScans.has(scanKey);
+                    return (
+                      <button
+                        key={`${scan.dateLabel}-${scan.utcTime}`}
+                        onClick={() => setSelectedScanIdx(idx)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "8px",
+                          border: selectedScanIdx === idx
+                            ? "1px solid #2997ff"
+                            : "1px solid rgba(255,255,255,0.08)",
+                          backgroundColor: selectedScanIdx === idx
+                            ? "rgba(41, 151, 255, 0.12)"
+                            : "transparent",
+                          color: isFailed
+                            ? "rgba(255,255,255,0.2)"
+                            : selectedScanIdx === idx
+                            ? "#2997ff"
+                            : "rgba(255,255,255,0.5)",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          textDecoration: isFailed ? "line-through" : "none",
+                        }}
+                      >
+                        {scan.istTime}
+                      </button>
+                    );
+                  })}
+                  {satLoading && (
+                    <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)", alignSelf: "center", marginLeft: "8px" }}>
+                      Loading…
+                    </span>
+                  )}
+                </div>
+
+                {/* Image Viewer */}
                 <div
                   style={{
-                    position: "absolute",
-                    bottom: "16px",
-                    right: "16px",
-                    padding: "6px 10px",
-                    borderRadius: "8px",
-                    backgroundColor: "rgba(0,0,0,0.5)",
-                    fontSize: "10px",
-                    color: "rgba(255,255,255,0.3)",
-                    zIndex: 3,
+                    position: "relative",
+                    width: "100%",
+                    aspectRatio: "16 / 10",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    backgroundColor: "#111113",
+                    border: "1px solid rgba(255,255,255,0.06)",
                   }}
                 >
-                  ISRO {satellite} · L1B Standard Product
-                </div>
-              )}
-            </div>
+                  {/* Loading spinner */}
+                  {!imageLoaded && !currentFailed && currentImageUrl && (
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>
+                      <div style={{ width: "32px", height: "32px", border: "3px solid rgba(255,255,255,0.1)", borderTop: "3px solid #2997ff", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                    </div>
+                  )}
 
-            {/* Source attribution */}
-            <div
-              style={{
-                marginTop: "14px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontSize: "11px",
-                color: "rgba(255,255,255,0.25)",
-              }}
-            >
-              <span>Source: ISRO MOSDAC (mosdac.gov.in) · {satellite} Geostationary Meteorological Satellite</span>
-              <span>Preview imagery for research / education use</span>
-            </div>
+                  {/* Image */}
+                  {currentImageUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      key={currentKey}
+                      src={currentImageUrl}
+                      alt={`INSAT-3DS ${channelLabels[selectedChannel] ?? selectedChannel} scan at ${currentScan?.istTime}`}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        opacity: imageLoaded && !currentFailed ? 1 : 0,
+                        transition: "opacity 0.4s ease",
+                        position: "absolute",
+                        inset: 0,
+                      }}
+                      onLoad={() => setImageLoaded(true)}
+                      onError={handleImageError}
+                    />
+                  )}
+
+                  {/* Metadata overlay (bottom-left) */}
+                  {currentScan && imageLoaded && !currentFailed && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "16px",
+                        left: "16px",
+                        padding: "8px 14px",
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        backdropFilter: "blur(10px)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        fontSize: "12px",
+                        zIndex: 3,
+                      }}
+                    >
+                      <span style={{ color: "#2997ff", fontWeight: 600 }}>MOSDAC</span>
+                      <span style={{ color: "rgba(255,255,255,0.5)" }}>
+                        {currentScan.dateLabel} · {currentScan.utcTime} UTC
+                      </span>
+                      <span style={{ color: "rgba(255,255,255,0.5)" }}>
+                        {channelLabels[selectedChannel] ?? selectedChannel}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Data source (bottom-right) */}
+                  {imageLoaded && !currentFailed && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "16px",
+                        right: "16px",
+                        padding: "6px 10px",
+                        borderRadius: "8px",
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.3)",
+                        zIndex: 3,
+                      }}
+                    >
+                      ISRO {satellite} · L1B Standard Product
+                    </div>
+                  )}
+                </div>
+
+                {/* Source attribution */}
+                <div
+                  style={{
+                    marginTop: "14px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "11px",
+                    color: "rgba(255,255,255,0.25)",
+                  }}
+                >
+                  <span>Source: ISRO MOSDAC (mosdac.gov.in) · {satellite} Geostationary Meteorological Satellite</span>
+                  <span>Preview imagery for research / education use</span>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -489,9 +646,11 @@ export default function InsatPage() {
             >
               <AodMap
                 imageUrl={currentAod?.url ?? null}
-                opacity={0.65}
+                opacity={0.7}
                 timeLabel={currentAod?.istTime}
                 dateLabel={currentAod?.dateLabel}
+                weather={weather}
+                fires={fires}
               />
             </div>
 
