@@ -1504,3 +1504,1044 @@ textarea {
     font-size: 11px !important;
   }
 }
+
+/* ==========================================================================
+   Camera Radiometry Module — Apple Design System Architecture
+   ========================================================================== */
+
+.radiometry-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* 1. Hero Introduction Section */
+.radiometry-intro {
+  padding: 80px 0 60px 0;
+  background-color: var(--color-canvas-parchment);
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.radiometry-kicker {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+}
+
+.radiometry-intro .hero-display {
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.radiometry-intro .lead {
+  max-width: 680px;
+  margin: 0 auto 16px auto;
+  font-size: 21px;
+  line-height: 1.35;
+  color: var(--color-ink);
+  font-weight: 400;
+}
+
+.radiometry-intro-note {
+  max-width: 640px;
+  margin: 0 auto;
+  color: var(--color-ink-muted-48);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 2. Workspace Layout & Container */
+.radiometry-workspace {
+  background-color: #fbfbfd;
+  padding: 48px 0 96px 0;
+  flex: 1;
+}
+
+.radiometry-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.radiometry-toolbar .eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.radiometry-toolbar strong {
+  display: block;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+/* 3. Preset Observations Bar */
+.radiometry-presets {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding: 12px 20px;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--rounded-lg);
+  box-shadow: var(--shadow-card-subtle);
+}
+
+.radiometry-presets .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted-48);
+  white-space: nowrap;
+}
+
+.radiometry-presets > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.radiometry-presets button {
+  padding: 8px 16px;
+  color: var(--color-ink);
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--rounded-pill);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-apple);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.radiometry-presets button:hover {
+  color: var(--color-primary);
+  border-color: rgba(0, 102, 204, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 102, 204, 0.08);
+}
+
+.radiometry-presets button:active {
+  transform: scale(0.97);
+}
+
+/* 4. Alert Banner */
+.radiometry-alert {
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  color: #c93b2b;
+  background-color: #fef2f2;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--rounded-md);
+  font-size: 13px;
+  line-height: 1.45;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 5. Main 2-Column Grid Architecture */
+.radiometry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.radiometry-column {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* 6. Apple Cards / Panels */
+.radiometry-panel {
+  background-color: #ffffff;
+  border-radius: var(--rounded-lg);
+  padding: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-card-subtle);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  position: relative;
+}
+
+.radiometry-panel:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.05);
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.panel-heading .eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.panel-heading h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  line-height: 1.2;
+}
+
+.panel-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: rgba(0, 102, 204, 0.06);
+  border: 1px solid rgba(0, 102, 204, 0.16);
+  flex-shrink: 0;
+}
+
+/* 7. Dropzone / Camera Viewfinder */
+.radiometry-dropzone {
+  position: relative;
+  height: 320px;
+  border-radius: 14px;
+  overflow: hidden;
+  background-color: #f2f3f5;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.radiometry-dropzone:hover {
+  border-color: rgba(0, 102, 204, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.radiometry-dropzone img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.radiometry-dropzone:hover img {
+  transform: scale(1.02);
+}
+
+.dropzone-overlay {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 48px 20px 18px;
+  color: #ffffff;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.68) 100%);
+  pointer-events: none;
+}
+
+.dropzone-overlay span {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dropzone-overlay small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.radiometry-dropzone.is-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f7f8fa;
+  color: var(--color-primary);
+}
+
+.radiometry-loader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.radiometry-loader span {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 102, 204, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: radiometry-spin 0.75s linear infinite;
+}
+
+@keyframes radiometry-spin {
+  to { transform: rotate(360deg); }
+}
+
+.upload-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid var(--color-divider-soft);
+}
+
+.upload-meta strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.upload-meta span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-ink-muted-48);
+}
+
+.capture-tip {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-ink-muted-48);
+  padding: 10px 14px;
+  background-color: var(--color-surface-pearl);
+  border-radius: var(--rounded-sm);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.text-link {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.text-link:hover {
+  color: var(--color-primary-focus);
+  text-decoration: underline;
+}
+
+.quiet-button {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.quiet-button:hover {
+  background-color: rgba(0, 102, 204, 0.06);
+}
+
+/* 8. Telemetry Device & Stats */
+.telemetry-device {
+  padding: 14px 18px;
+  background-color: var(--color-surface-pearl);
+  border-radius: var(--rounded-md);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+}
+
+.telemetry-device span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted-48);
+}
+
+.telemetry-device strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.telemetry-device i {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin: 0 8px 3px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  vertical-align: middle;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.radiometry-stat {
+  padding: 16px;
+  background-color: var(--color-surface-pearl);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--rounded-md);
+  transition: background-color 0.15s ease;
+}
+
+.radiometry-stat span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-muted-48);
+}
+
+.radiometry-stat strong {
+  display: block;
+  margin: 6px 0 3px;
+  font-family: var(--font-mono);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.radiometry-stat small {
+  display: block;
+  font-size: 11px;
+  color: var(--color-ink-muted-48);
+}
+
+.telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px 0;
+  border-top: 1px solid var(--color-divider-soft);
+  font-size: 13px;
+}
+
+.telemetry-row span {
+  color: var(--color-ink-muted-48);
+}
+
+.telemetry-row strong {
+  font-weight: 500;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+/* 9. Manual Editor Drawer */
+.manual-editor {
+  margin-top: 16px;
+  padding: 18px;
+  background-color: var(--color-canvas-parchment);
+  border-radius: var(--rounded-md);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  animation: fadeIn 0.2s ease;
+}
+
+.manual-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.manual-grid label,
+.calibration-modal label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-muted-48);
+}
+
+.manual-grid input,
+.calibration-modal input,
+.manual-editor select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-sm);
+  background-color: #ffffff;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.manual-grid input:focus,
+.calibration-modal input:focus,
+.manual-editor select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
+}
+
+.telemetry-warning {
+  margin-top: 14px;
+  padding: 10px 14px;
+  color: #925f00;
+  background-color: #fffbeb;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--rounded-sm);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* 10. Atmospheric AQ Panel & Hero Display */
+.quality-badge {
+  padding: 6px 12px;
+  border-radius: var(--rounded-pill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-primary);
+  background-color: rgba(0, 102, 204, 0.08);
+  border: 1px solid rgba(0, 102, 204, 0.18);
+}
+
+.formula-chip {
+  padding: 5px 12px;
+  border-radius: var(--rounded-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-primary);
+  background-color: rgba(0, 102, 204, 0.08);
+  border: 1px solid rgba(0, 102, 204, 0.16);
+}
+
+.aq-panel {
+  background-color: #ffffff;
+}
+
+.aq-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 24px;
+  color: #ffffff;
+  background: linear-gradient(145deg, #1c1c1e 0%, #2c2c2e 100%);
+  border-radius: var(--rounded-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.aq-hero span {
+  display: block;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.aq-hero strong {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.aq-hero div + div {
+  padding-left: 20px;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.aq-hero div + div strong {
+  font-size: 26px;
+  margin-top: 6px;
+}
+
+.aq-hero small {
+  font-size: 12px;
+  font-family: var(--font-apple);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  margin-left: 2px;
+}
+
+.aq-hero em {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: normal;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.aq-scale {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  margin: 20px 0 16px;
+}
+
+.aq-scale i {
+  height: 6px;
+  border-radius: 99px;
+  background-color: #e5e5ea;
+}
+
+.aq-scale i:nth-child(1) { background-color: #34c759; }
+.aq-scale i:nth-child(2) { background-color: #ffd60a; }
+.aq-scale i:nth-child(3) { background-color: #ff9f0a; }
+.aq-scale i:nth-child(4) { background-color: #ff453a; }
+.aq-scale i:nth-child(5) { background-color: #bf5af2; }
+.aq-scale i:nth-child(6) { background-color: #8b0000; }
+
+.aq-panel > p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-ink-muted-80);
+}
+
+.aq-advisory {
+  display: grid;
+  gap: 4px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-divider-soft);
+  color: var(--color-ink-muted-48);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.aq-advisory strong {
+  color: var(--color-ink);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* 11. Physics Radiometry Panel */
+.formula-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  color: #334e68;
+  background-color: #f0f4f8;
+  border: 1px solid rgba(0, 102, 204, 0.08);
+  border-radius: var(--rounded-md);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.formula-box small {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-ink-muted-48);
+  font-family: var(--font-apple);
+  font-size: 12px;
+}
+
+.baseline-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  color: #855300;
+  background-color: #fff9ea;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--rounded-md);
+  font-size: 12.5px;
+}
+
+.baseline-alert strong {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.baseline-alert span {
+  display: block;
+  margin-top: 2px;
+  color: #925f00;
+}
+
+.baseline-alert button {
+  padding: 6px 14px;
+  color: #ffffff;
+  background-color: #d97706;
+  border-radius: var(--rounded-pill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.baseline-alert button:hover {
+  background-color: #b45309;
+}
+
+/* 12. Trust & Observation Integrity */
+.integrity-badge {
+  padding: 5px 12px;
+  border-radius: var(--rounded-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.integrity-badge.authentic {
+  color: #1e7e34;
+  background-color: #ebfaef;
+  border: 1px solid rgba(40, 167, 69, 0.25);
+}
+
+.integrity-badge.suspicious {
+  color: #925f00;
+  background-color: #fffbeb;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.integrity-badge.spoofed {
+  color: #c92a2a;
+  background-color: #fff5f5;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.observation-confidence {
+  margin-bottom: 20px;
+  padding: 18px;
+  background-color: #f7f9fc;
+  border: 1px solid #e3e8ee;
+  border-radius: var(--rounded-md);
+}
+
+.confidence-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.confidence-heading .corroboration-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted-48);
+}
+
+.confidence-heading strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+}
+
+.observation-confidence > p {
+  margin: 12px 0 0;
+  color: var(--color-ink-muted-80);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.observation-confidence .check-list {
+  margin-top: 14px;
+}
+
+.observation-confidence .check-row {
+  background-color: #ffffff;
+}
+
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background-color: var(--color-surface-pearl);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--rounded-sm);
+  transition: background-color 0.15s ease;
+}
+
+.check-row strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.check-row p {
+  margin-top: 2px;
+  color: var(--color-ink-muted-48);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.check-pass,
+.check-fail {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.check-pass {
+  color: #1e7e34;
+  background-color: #e6f6ec;
+  border: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+.check-fail {
+  color: #c92a2a;
+  background-color: #fde8e8;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* 13. Corroboration Blocks */
+.corroboration-block {
+  padding: 18px 0;
+  border-top: 1px solid var(--color-divider-soft);
+}
+
+.corroboration-block:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.corroboration-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-ink-muted-48);
+  margin-bottom: 6px;
+}
+
+.corroboration-block strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.corroboration-block p {
+  margin-top: 4px;
+  color: var(--color-ink-muted-80);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.corroboration-block small {
+  display: block;
+  margin-top: 8px;
+  color: var(--color-ink-muted-48);
+  font-size: 11.5px;
+}
+
+.concordance-line {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-divider-soft);
+  color: var(--color-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* 14. Calibration Modal */
+.calibration-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  animation: fadeIn 0.2s ease;
+}
+
+.calibration-modal {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  background-color: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  animation: modalPop 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes modalPop {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.calibration-modal > p {
+  margin-bottom: 22px;
+  color: var(--color-ink-muted-48);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.calibration-modal label {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.calibration-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-divider-soft);
+}
+
+/* 15. Responsive Media Queries */
+@media (max-width: 960px) {
+  .radiometry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .radiometry-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .radiometry-presets {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .radiometry-presets > div {
+    justify-content: flex-start;
+  }
+
+  .radiometry-panel {
+    padding: 22px;
+  }
+
+  .aq-hero strong {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 580px) {
+  .telemetry-grid,
+  .metric-grid,
+  .manual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .radiometry-stat {
+    padding: 14px;
+  }
+
+  .telemetry-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .telemetry-row strong {
+    text-align: left;
+  }
+
+  .upload-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .baseline-alert {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .aq-hero {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .aq-hero div + div {
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .panel-heading h2 {
+    font-size: 20px;
+  }
+}
