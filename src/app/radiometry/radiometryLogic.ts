@@ -100,6 +100,8 @@ export function validateAtmosphericScene(
 
   let upperSkyPixels = 0;
   let upperSkinPixels = 0;
+  let upperOvercastPixels = 0;
+  let upperBluePixels = 0;
 
   let darkModeBgPixels = 0;
   let lightModeBgPixels = 0;
@@ -139,14 +141,19 @@ export function validateAtmosphericScene(
         if (isUpper) upperSkinPixels++;
       }
 
-      // 2. Sky heuristic
+      // 2. Sky heuristic (Blue sky, overcast cloud, hazy sky, or sunset/twilight sky)
       const isBlueSky = lum >= 50 && b >= g && b - r >= 10;
-      const isOvercastCloud = lum >= 130 && Math.abs(r - g) <= 20 && Math.abs(g - b) <= 20;
+      const isOvercastCloud = lum >= 90 && Math.abs(r - g) <= 24 && Math.abs(g - b) <= 24;
       const isHazySky = lum >= 75 && lum <= 235 && Math.abs(r - g) <= 25 && Math.abs(g - b) <= 25;
+      const isSunsetSky = lum >= 30 && lum <= 245 && r >= g && r >= b + 10;
 
-      if (isBlueSky || isOvercastCloud || isHazySky) {
+      if (isBlueSky || isOvercastCloud || isHazySky || isSunsetSky) {
         skyPixels++;
-        if (isUpper) upperSkyPixels++;
+        if (isUpper) {
+          upperSkyPixels++;
+          if (isOvercastCloud) upperOvercastPixels++;
+          if (isBlueSky) upperBluePixels++;
+        }
       }
 
       // 3. Digital screenshot flat background tracking
@@ -238,58 +245,61 @@ export function validateAtmosphericScene(
     );
   }
 
-  // 2. Finger / Hand / Backlit Flesh covering lens
-  if ((skinPercentage > 45 || upperSkinPercentage > 40) && upperSkyCoverage < 25) {
+  // 2. Finger / Hand / Backlit Flesh covering lens (must be blurred/defocused with virtually no edges or sky)
+  if ((skinPercentage > 55 || upperSkinPercentage > 50) && upperSkyCoverage < 15 && edgeDensity < 1.0) {
     return reject(
       "finger_occlusion",
       "Camera lens appears occluded by a finger, hand, or physical object."
     );
   }
 
-  // 3. Person / Portrait / Selfie
-  if (skinPercentage > 20 && upperSkyCoverage < 35) {
+  // 3. Person / Portrait / Selfie (large skin area in frame without sky or silhouette)
+  if (skinPercentage > 30 && upperSkyCoverage < 20 && edgeDensity > 3.5) {
     return reject(
       "skin_person",
       "Image contains a person or foreground subject rather than an open atmospheric sky."
     );
   }
 
-  // 4. Code / Editor Screenshot (Dark Mode or Light Mode)
+  // 4. Digital Screenshot / App UI / Graphic Detection
+  const hasDigitalFlatRuns = flatRunCount > 3 && !exifHasCamera;
   const isDarkCodeScreenshot = darkModeBgRatio > 35 && edgeDensity > 6;
-  const isLightCodeScreenshot = lightModeBgRatio > 35 && edgeDensity > 7;
-  const isHighEdgeSynthetic = edgeDensity > 12 && (flatLineRatio > 1.5 || !exifHasCamera);
+  const isLightCodeScreenshot = lightModeBgRatio > 30 && (edgeDensity > 5 || hasDigitalFlatRuns);
+  const isHighEdgeSynthetic = edgeDensity > 9 && (flatLineRatio > 0.8 || !exifHasCamera);
 
-  if (isDarkCodeScreenshot || isLightCodeScreenshot || isHighEdgeSynthetic) {
+  if (hasDigitalFlatRuns || isDarkCodeScreenshot || isLightCodeScreenshot || isHighEdgeSynthetic) {
     return reject(
-      "screenshot_code",
-      "Detected a code editor, terminal, or digital document screenshot."
+      "screenshot_web",
+      "Detected a digital application screenshot, user interface, or non-photographic graphic."
     );
   }
 
   // 5. Webpage / UI / Document Screenshot
-  if (edgeDensity > 10 && upperSkyCoverage < 30) {
+  if (edgeDensity > 8 && (upperSkyCoverage < 35 || !exifHasCamera)) {
     return reject(
       "screenshot_web",
-      "Detected a webpage, application interface, or graphic screenshot."
+      "Detected an application interface, document, or non-atmospheric graphic."
     );
   }
 
   // 6. Indoor Scene / Zero Sky / Artificial Lighting
-  if (upperSkyCoverage < 25) {
+  if (upperSkyCoverage < 20) {
     return reject(
       upperSkyCoverage < 10 ? "indoor_scene" : "insufficient_sky",
       upperSkyCoverage < 10
         ? "Image appears to be an indoor or enclosed environment with no visible sky."
-        : "Insufficient unobstructed sky region in the frame (minimum 35% required in upper frame)."
+        : "Insufficient unobstructed sky region in the frame (minimum 25% required in upper frame)."
     );
   }
 
+  const upperCloudRatio = upperOvercastPixels / Math.max(1, upperHalfPixels);
+
   // 7. Valid Sky Detection (Clear, Cloudy, or Hazy)
-  if (upperSkyCoverage >= 40 && edgeDensity <= 7.5) {
+  if (upperSkyCoverage >= 35 && edgeDensity <= 7.5) {
     let detectedType: SceneDetectedType = "clear_sky";
-    if (skyCoverage > 50 && avgLuminance > 140) {
+    if (upperCloudRatio > 0.18 || (upperOvercastPixels > upperBluePixels * 1.3 && upperSkyCoverage > 30)) {
       detectedType = "cloudy_sky";
-    } else if (edgeDensity < 3.5 && skyCoverage > 45) {
+    } else if (edgeDensity < 3.5 && skyCoverage > 40) {
       detectedType = "hazy_sky";
     }
 
@@ -306,17 +316,18 @@ export function validateAtmosphericScene(
     };
   }
 
-  // 8. Uncertain / Borderline Sky
-  if (upperSkyCoverage >= 25 && upperSkyCoverage < 40) {
+  // 8. Urban Framing / Balcony / Terrace Sky (lower frame has building, upper frame has sky)
+  if (upperSkyCoverage >= 20 && upperSkyCoverage < 35) {
+    const isCloudDominant = upperCloudRatio > 0.12 || upperOvercastPixels > upperBluePixels;
     return {
       sceneValid: true,
       sceneQuality: "uncertain",
-      detectedType: "insufficient_sky",
-      rejectionReason: "Borderline sky coverage; obstructions or non-sky content may reduce estimation confidence.",
+      detectedType: isCloudDominant ? "cloudy_sky" : "clear_sky",
+      rejectionReason: "Urban structures or rooftop in foreground; radiometry focused on upper atmospheric aperture.",
       userMessage: {
-        title: "Uncertain observation quality",
-        description: "Borderline sky coverage; obstructions or non-sky content may reduce estimation confidence.",
-        action: "Framing warning active — consider capturing a more open sky observation.",
+        title: "Urban framing detected",
+        description: "Building or rooftop detected in foreground. Radiometric analysis calibrated on upper atmospheric sky region.",
+        action: "Framing active — upper sky aperture analyzed.",
       },
       metrics,
     };
@@ -328,7 +339,33 @@ export function validateAtmosphericScene(
   );
 }
 
-export function validateImageScene(image: HTMLImageElement, exif?: ExifData): SceneValidationResult {
+export function validateImageScene(image: HTMLImageElement, exif?: ExifData, fileName?: string): SceneValidationResult {
+  // Check if filename explicitly indicates a digital screenshot or capture
+  if (fileName && /screenshot|screen_shot|screen shot|snip|screen\s*\d|capture/i.test(fileName)) {
+    return {
+      sceneValid: false,
+      sceneQuality: "invalid",
+      detectedType: "screenshot_web",
+      rejectionReason: `Filename "${fileName}" indicates an application screen capture rather than an outdoor photograph.`,
+      userMessage: {
+        title: "Screen capture rejected",
+        description: "This image appears to be a digital screenshot, not an outdoor camera sky observation.",
+        action: "Please upload an outdoor photograph of the open sky captured by a smartphone camera.",
+      },
+      metrics: {
+        edgeDensity: 10,
+        skyCoverage: 0,
+        upperSkyCoverage: 0,
+        skinPercentage: 0,
+        upperSkinPercentage: 0,
+        flatLineRatio: 1,
+        avgLuminance: 128,
+        darkPixelPercentage: 0,
+        clippedPixelPercentage: 0,
+      },
+    };
+  }
+
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) {
@@ -584,15 +621,27 @@ export function calculateRadiometry(
 export const AQI_TIERS = [[0.15, 0, 50, "Good", "#10B981", "bg-emerald-950/40", "border-emerald-500/30", "text-emerald-400", "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", "Air quality is satisfactory, with little or no risk.", "Ideal for outdoor activities."], [0.35, 51, 100, "Moderate", "#EAB308", "bg-yellow-950/40", "border-yellow-500/30", "text-yellow-400", "bg-yellow-500/20 text-yellow-300 border-yellow-500/30", "Light aerosol or thin haze is present.", "Sensitive individuals should consider limiting prolonged exertion."], [0.55, 101, 150, "Unhealthy for Sensitive Groups", "#F97316", "bg-orange-950/40", "border-orange-500/30", "text-orange-400", "bg-orange-500/20 text-orange-300 border-orange-500/30", "Noticeable haze scattering light.", "Sensitive groups should reduce strenuous activity."], [0.8, 151, 200, "Unhealthy", "#EF4444", "bg-red-950/40", "border-red-500/30", "text-red-400", "bg-red-500/20 text-red-300 border-red-500/30", "Dense haze or smog is causing optical attenuation.", "Avoid prolonged outdoor activities."], [1.1, 201, 300, "Very Unhealthy", "#A855F7", "bg-purple-950/40", "border-purple-500/30", "text-purple-400", "bg-purple-500/20 text-purple-300 border-purple-500/30", "Severe aerosol loading is visible.", "Remain indoors with air filtration."], [Infinity, 301, 500, "Hazardous", "#881337", "bg-rose-950/50", "border-rose-600/40", "text-rose-400", "bg-rose-600/20 text-rose-300 border-rose-600/30", "Extreme particulate attenuation or heavy smoke.", "Keep doors and windows tightly sealed."]] as const;
 const EPA_PM25_BREAKPOINTS = [[0, 9, 0, 50, "Good"], [9.1, 35.4, 51, 100, "Moderate"], [35.5, 55.4, 101, 150, "Unhealthy for Sensitive Groups"], [55.5, 125.4, 151, 200, "Unhealthy"], [125.5, 225.4, 201, 300, "Very Unhealthy"], [225.5, 325.4, 301, 500, "Hazardous"]] as const;
 export function calculateEpaAqiFromPm25(pm25: number) { if (!Number.isFinite(pm25) || pm25 < 0) return { aqi: 0, category: "Good" }; const concentration = Math.floor(pm25 * 10) / 10; for (const [cLow, cHigh, iLow, iHigh, category] of EPA_PM25_BREAKPOINTS) { if (concentration <= cHigh) return { aqi: Math.min(500, Math.max(0, Math.round(((iHigh - iLow) / (cHigh - cLow)) * (concentration - cLow) + iLow))), category }; } return { aqi: 500, category: "Hazardous" }; }
-export function estimateAirQuality(tau: number) {
+export function estimateAirQuality(tau: number, isCloudy = false) {
   const safeTau = Math.max(0.01, tau);
+
+  // When overcast clouds are present, optical depth is dominated by water vapor (COD).
+  // Separate true dry particulate aerosol (AOD) from cloud droplet scattering:
+  const aerosolTau = isCloudy ? Math.max(0.08, safeTau * 0.18) : safeTau;
+
   // Empirically calibrated mass extinction coefficient for Indo-Gangetic particulate:
   // PM2.5 (ug/m3) = tau / (sigma_ext * H_eff) * 10^6 ≈ tau * 215.0
-  const pm25Proxy = Math.round(safeTau * 215.0 * 10) / 10;
+  const pm25Proxy = Math.round(aerosolTau * 215.0 * 10) / 10;
   const { aqi, category } = calculateEpaAqiFromPm25(pm25Proxy);
   const tier = AQI_TIERS.find((candidate) => candidate[3] === category) || AQI_TIERS[AQI_TIERS.length - 1];
+
   return {
     tau: safeTau,
+    aerosolTau,
+    isCloudy,
+    cloudAttenuated: isCloudy,
+    cloudAdvisory: isCloudy
+      ? "Overcast cloud layer detected. Optical attenuation is dominated by water vapor clouds rather than dry PM2.5 soot. Cloud-screened aerosol baseline applied."
+      : undefined,
     aqi,
     pm25Proxy,
     category,
@@ -601,9 +650,9 @@ export function estimateAirQuality(tau: number) {
     borderColor: tier[6],
     textColor: tier[7],
     badgeColor: tier[8],
-    description: tier[9],
+    description: isCloudy ? "Overcast water vapor clouds scattering light." : tier[9],
     advisory: tier[10],
-    allTiers: AQI_TIERS
+    allTiers: AQI_TIERS,
   };
 }
 

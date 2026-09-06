@@ -368,16 +368,15 @@ export async function fetchAirQualityForObservation(
   }
 
   try {
-    const apiKey = typeof window !== "undefined" ? localStorage.getItem("tropos_openaq_api_key") || "" : "";
-    const url = new URL("https://api.openaq.org/v3/locations");
-    url.searchParams.set("coordinates", `${lat},${lon}`);
+    const url = new URL("/api/radiometry/openaq", window.location.origin);
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lon));
     url.searchParams.set("radius", `${MAX_CORROBORATION_DISTANCE_KM * 1000}`);
-    url.searchParams.set("limit", "10");
 
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 6000);
-    const response = await fetch(url, {
-      headers: { Accept: "application/json", ...(apiKey ? { "X-API-Key": apiKey } : {}) },
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
       signal: controller.signal,
     });
     window.clearTimeout(timeout);
@@ -584,14 +583,61 @@ async function imageToBase64(file: File) {
   const dataUrl = canvas.toDataURL("image/jpeg", .85); return { mimeType: "image/jpeg", data: dataUrl.split(",")[1] };
 }
 
-export async function analyzeSkyHazeWithGemini(file: File, radiometry: { opticalDepth: number; aqi: number }): Promise<VisionResult> {
-  const apiKey = typeof window !== "undefined" ? localStorage.getItem("tropos_gemini_api_key") || "" : "";
-  if (!apiKey) return syntheticVision(radiometry.opticalDepth, radiometry.aqi);
+export async function analyzeSkyHazeWithGemini(
+  file: File,
+  radiometry: { opticalDepth: number; aqi: number },
+  locationName?: string
+): Promise<VisionResult> {
   try {
     const image = await imageToBase64(file);
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: `Analyze this sky image for haze and aerosol loading. Return JSON with hazeSeverity, hazeDescription, estimatedAodTau, estimatedAqi, aqiCategory, cloudCoveragePercent, cloudType, aerosolVsCloudConfidence, skyTurbidityRating, visualClarity, radiometricCorroboration. Physical optical depth is ${radiometry.opticalDepth.toFixed(3)} and estimated AQI is ${radiometry.aqi}.` }, { inlineData: image }] }], generationConfig: { responseMimeType: "application/json", temperature: .2 } }) });
-    if (!response.ok) throw new Error(`Gemini returned HTTP ${response.status}.`);
-    const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }; const raw = payload.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/^```json\s*/i, "").replace(/\s*```$/, ""); if (!raw) throw new Error("Gemini returned no analysis.");
-    return { ...syntheticVision(radiometry.opticalDepth, radiometry.aqi), ...JSON.parse(raw), success: true, isSynthetic: false, fallbackReason: undefined };
-  } catch (error) { return { ...syntheticVision(radiometry.opticalDepth, radiometry.aqi), fallbackReason: error instanceof Error ? error.message : "Gemini unavailable." }; }
+
+    // Call secure server-side Gemini Vision API route
+    const response = await fetch("/api/radiometry/vision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageBase64: image.data,
+        mimeType: image.mimeType,
+        opticalDepth: radiometry.opticalDepth,
+        aqi: radiometry.aqi,
+        locationName: locationName || "India",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Vision API error: HTTP ${response.status}`);
+    }
+
+    const res = await response.json();
+
+    if (!res.success) {
+      return {
+        ...syntheticVision(radiometry.opticalDepth, radiometry.aqi),
+        fallbackReason: res.fallbackReason || "Gemini Vision key not configured",
+      };
+    }
+
+    return {
+      success: true,
+      isSynthetic: false,
+      hazeSeverity: res.hazeSeverity || "moderate",
+      hazeDescription: res.hazeDescription || "Atmospheric aerosol analysis completed.",
+      estimatedAodTau: res.estimatedAodTau ?? radiometry.opticalDepth,
+      estimatedAqi: res.estimatedAqi ?? radiometry.aqi,
+      aqiCategory: res.aqiCategory || "Moderate",
+      cloudCoveragePercent: res.cloudCoveragePercent ?? 0,
+      cloudType: res.cloudType || "Clear",
+      aerosolVsCloudConfidence: res.aerosolVsCloudConfidence ?? 0.85,
+      skyTurbidityRating: res.skyTurbidityRating || "moderate",
+      visualClarity: res.visualClarity || "Visual clarity analyzed",
+      radiometricCorroboration: res.radiometricCorroboration || "Gemini visual analysis corroborates physical sensor.",
+      fallbackReason: undefined,
+    };
+  } catch (error) {
+    return {
+      ...syntheticVision(radiometry.opticalDepth, radiometry.aqi),
+      fallbackReason: error instanceof Error ? error.message : "Gemini vision unavailable.",
+    };
+  }
 }
+

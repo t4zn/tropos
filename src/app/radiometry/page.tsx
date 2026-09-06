@@ -118,8 +118,13 @@ export default function RadiometryPage() {
       )
     : null;
 
+  const isCloudy =
+    sceneValidation?.detectedType === "cloudy_sky" ||
+    Boolean(stats && stats.upperBrightNeutralPercentage > 20) ||
+    Boolean(stats && stats.avgLuminance > 110 && Math.abs(stats.r - stats.b) < 22 && (radiometry?.opticalDepth ?? 0) > 0.45);
+
   const air = isAtmosphericSky && radiometry
-    ? estimateAirQuality(radiometry.opticalDepth)
+    ? estimateAirQuality(radiometry.opticalDepth, isCloudy)
     : null;
 
   const observation = isAtmosphericSky && radiometry
@@ -239,7 +244,7 @@ export default function RadiometryPage() {
 
       // 2. MANDATORY PIPELINE:
       // Uploaded image -> IMAGE TYPE / SCENE VALIDATION
-      const validationResult = validateImageScene(img, nextExif);
+      const validationResult = validateImageScene(img, nextExif, file.name);
       setSceneValidation(validationResult);
 
       if (!validationResult.sceneValid) {
@@ -272,9 +277,17 @@ export default function RadiometryPage() {
           dateTimeOriginal: nextExif.parsed.dateTimeOriginal,
         }
       );
-      const nextAir = estimateAirQuality(nextRadiometry.opticalDepth);
+      const nextIsCloudy =
+        validationResult.detectedType === "cloudy_sky" ||
+        nextStats.upperBrightNeutralPercentage > 20 ||
+        (nextStats.avgLuminance > 110 && Math.abs(nextStats.r - nextStats.b) < 22 && nextRadiometry.opticalDepth > 0.45);
+      const nextAir = estimateAirQuality(nextRadiometry.opticalDepth, nextIsCloudy);
 
-      void analyzeSkyHazeWithGemini(file, { opticalDepth: nextRadiometry.opticalDepth, aqi: nextAir.aqi })
+      void analyzeSkyHazeWithGemini(
+        file,
+        { opticalDepth: nextRadiometry.opticalDepth, aqi: nextAir.aqi },
+        observationLocation?.localityName || "India"
+      )
         .then((nextVision) => setVision(nextVision))
         .catch(() => setVision(null))
         .finally(() => setVisionLoading(false));
@@ -496,7 +509,7 @@ export default function RadiometryPage() {
               </div>
               <div className="telemetry-row">
                 <span>Capture date</span>
-                <strong>{exif.parsed.dateTimeOriginalDisplay}</strong>
+                <strong suppressHydrationWarning>{exif.parsed.dateTimeOriginalDisplay}</strong>
               </div>
               <div className="telemetry-row">
                 <span>Location signal</span>
@@ -594,6 +607,27 @@ export default function RadiometryPage() {
                     <div>
                       <strong>Uncertain observation framing: </strong>
                       {sceneValidation.rejectionReason || "Borderline sky coverage; obstructions or non-sky content may reduce estimation confidence."}
+                    </div>
+                  </div>
+                )}
+                {air.cloudAttenuated && (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(0, 102, 204, 0.06)",
+                    border: "1px solid rgba(0, 102, 204, 0.2)",
+                    marginBottom: "14px",
+                    fontSize: "12px",
+                    color: "#0066cc",
+                    lineHeight: 1.4,
+                  }}>
+                    <span style={{ fontSize: "16px" }}>☁️</span>
+                    <div>
+                      <strong>Overcast Cloud Screening Active: </strong>
+                      Optical attenuation is dominated by water vapor clouds rather than dry PM2.5 soot. Atmospheric cloud-screening applied.
                     </div>
                   </div>
                 )}
@@ -794,7 +828,12 @@ export default function RadiometryPage() {
                     <>
                       <strong>{vision.hazeSeverity} haze · {vision.aqiCategory}</strong>
                       <p>{vision.hazeDescription}</p>
-                      <small>{vision.isSynthetic ? "Local fallback analysis" : "Gemini Vision analysis"} · confidence {(vision.aerosolVsCloudConfidence * 100).toFixed(0)}%</small>
+                      <small>{vision.isSynthetic ? "Local fallback analysis" : "Gemini 1.5 Flash Vision"} · confidence {(vision.aerosolVsCloudConfidence * 100).toFixed(0)}%</small>
+                      {vision.fallbackReason && (
+                        <div style={{ fontSize: "11px", color: "#8e8e93", marginTop: "4px" }}>
+                          ℹ️ {vision.fallbackReason}
+                        </div>
+                      )}
                     </>
                   ) : (
                     <p>Upload a real image to compare visual haze with the physical estimate.</p>
