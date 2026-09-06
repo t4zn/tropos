@@ -2545,3 +2545,284 @@ textarea {
     font-size: 20px;
   }
 }
+
+/* 16. Scene Validation & Observation Rejection */
+.rejection-panel {
+  border-color: rgba(220, 38, 38, 0.25);
+  background: linear-gradient(180deg, #ffffff 0%, #fffbfb 100%);
+}
+
+.badge-rejected {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+}
+
+.rejection-hero {
+  display: flex;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 16px;
+  background: #fdf2f2;
+  border: 1px solid #fecaca;
+  margin: 18px 0;
+  align-items: flex-start;
+}
+
+.rejection-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.rejection-content {
+  flex: 1;
+}
+
+.rejection-content h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #991b1b;
+  margin: 0 0 6px 0;
+  line-height: 1.35;
+}
+
+.rejection-advisory {
+  font-size: 13.5px;
+  color: #7f1d1d;
+  line-height: 1.45;
+  margin: 0 0 14px 0;
+  font-weight: 500;
+}
+
+.rejection-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+}
+
+.rejection-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.rejection-tag span {
+  color: var(--color-ink-muted-48);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10.5px;
+}
+
+.rejection-tag strong {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.rejection-reason {
+  font-size: 12.5px;
+  color: var(--color-ink-muted-80);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.rejection-gating-notice {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fafafc;
+  border: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rejection-gating-notice strong {
+  font-size: 12.5px;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.rejection-gating-notice span {
+  font-size: 12px;
+  color: var(--color-ink-muted-48);
+  line-height: 1.45;
+}
+
+.rejection-placeholder {
+  padding: 24px;
+  border-radius: 14px;
+  background: #fafafc;
+  border: 1px dashed var(--color-hairline);
+  text-align: center;
+  color: var(--color-ink-muted-48);
+}
+
+.rejection-placeholder p {
+  font-size: 13.5px;
+  margin: 0 0 6px 0;
+  color: var(--color-ink-muted-80);
+}
+
+.rejection-placeholder small {
+  font-size: 12px;
+  color: var(--color-ink-muted-48);
+}
+
+.uncertainty-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  color: #92400e;
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.uncertainty-banner strong {
+  font-weight: 600;
+}
+
+/* 17. Location-Aware Observation Card & Corroboration */
+.observation-location-card {
+  margin-top: 14px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid var(--color-hairline);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.location-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.location-card-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-muted-48);
+}
+
+.location-card-eyebrow .location-pin {
+  font-size: 13px;
+}
+
+.location-card-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.location-card-subtext {
+  font-size: 12.5px;
+  color: var(--color-ink-muted-48);
+  margin: 4px 0 0 0;
+  line-height: 1.4;
+}
+
+.location-badge-gps {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 102, 204, 0.08);
+  color: var(--color-primary);
+}
+
+.location-card-detecting {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.location-spinner {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  border: 2px solid rgba(0, 102, 204, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.location-retry-btn {
+  background: none;
+  border: 1px solid var(--color-hairline);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.location-retry-btn:hover {
+  background: rgba(0, 102, 204, 0.05);
+  border-color: var(--color-primary);
+}
+
+.divergence-alert {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.divergence-alert strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.divergence-alert p {
+  margin: 3px 0 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #a16207;
+}

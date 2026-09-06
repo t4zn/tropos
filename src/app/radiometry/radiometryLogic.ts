@@ -28,6 +28,321 @@ export interface PixelStats {
   brightnessGradient: number;
 }
 
+export type SceneDetectedType =
+  | "clear_sky"
+  | "cloudy_sky"
+  | "hazy_sky"
+  | "screenshot_code"
+  | "screenshot_web"
+  | "finger_occlusion"
+  | "skin_person"
+  | "indoor_scene"
+  | "insufficient_sky"
+  | "extreme_exposure";
+
+export interface SceneValidationMetrics {
+  edgeDensity: number;
+  skyCoverage: number;
+  upperSkyCoverage: number;
+  skinPercentage: number;
+  upperSkinPercentage: number;
+  flatLineRatio: number;
+  avgLuminance: number;
+  darkPixelPercentage: number;
+  clippedPixelPercentage: number;
+}
+
+export interface SceneValidationResult {
+  sceneValid: boolean;
+  sceneQuality: "valid" | "uncertain" | "invalid";
+  detectedType: SceneDetectedType;
+  rejectionReason?: string;
+  userMessage: {
+    title: string;
+    description: string;
+    action: string;
+  };
+  metrics: SceneValidationMetrics;
+}
+
+export function formatDetectedType(type: SceneDetectedType): string {
+  switch (type) {
+    case "clear_sky": return "Clear Atmospheric Sky";
+    case "cloudy_sky": return "Cloudy Atmospheric Sky";
+    case "hazy_sky": return "Hazy Atmospheric Sky";
+    case "screenshot_code": return "Code Editor / Terminal Screenshot";
+    case "screenshot_web": return "Webpage / Document Screenshot";
+    case "finger_occlusion": return "Finger / Lens Occlusion";
+    case "skin_person": return "Person / Foreground Subject";
+    case "indoor_scene": return "Indoor / Enclosed Environment";
+    case "insufficient_sky": return "Insufficient Sky Coverage";
+    case "extreme_exposure": return "Extreme Exposure / Blackout";
+    default: return "Non-Atmospheric Observation";
+  }
+}
+
+export function validateAtmosphericScene(
+  pixels: { width: number; height: number; data: Uint8ClampedArray | number[] },
+  exifHasCamera = false
+): SceneValidationResult {
+  const { width, height, data } = pixels;
+  const totalPixels = width * height;
+  const upperHalfHeight = Math.max(1, Math.floor(height / 2));
+  const upperHalfPixels = upperHalfHeight * width;
+
+  let totalLuminance = 0;
+  let darkPixels = 0;
+  let clippedPixels = 0;
+  let skinPixels = 0;
+  let skyPixels = 0;
+  let edgeCount = 0;
+  let flatRunCount = 0;
+
+  let upperSkyPixels = 0;
+  let upperSkinPixels = 0;
+
+  let darkModeBgPixels = 0;
+  let lightModeBgPixels = 0;
+
+  for (let y = 0; y < height; y++) {
+    let consecutiveFlat = 1;
+    const isUpper = y < upperHalfHeight;
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+      totalLuminance += lum;
+      if (lum <= 25) darkPixels++;
+      if (lum >= 248) clippedPixels++;
+
+      // 1. Skin / flesh / finger detection
+      const isSkin =
+        r > 55 &&
+        g > 30 &&
+        b > 15 &&
+        r > g &&
+        g >= b * 0.85 &&
+        (r - g) > 8 &&
+        (r - b) > 15;
+
+      const isBacklitTissue =
+        r > 85 &&
+        r > g * 1.5 &&
+        b < 70 &&
+        (r - g) / (r + g + 0.1) > 0.25;
+
+      if (isSkin || isBacklitTissue) {
+        skinPixels++;
+        if (isUpper) upperSkinPixels++;
+      }
+
+      // 2. Sky heuristic
+      const isBlueSky = lum >= 50 && b >= g && b - r >= 10;
+      const isOvercastCloud = lum >= 130 && Math.abs(r - g) <= 20 && Math.abs(g - b) <= 20;
+      const isHazySky = lum >= 75 && lum <= 235 && Math.abs(r - g) <= 25 && Math.abs(g - b) <= 25;
+
+      if (isBlueSky || isOvercastCloud || isHazySky) {
+        skyPixels++;
+        if (isUpper) upperSkyPixels++;
+      }
+
+      // 3. Digital screenshot flat background tracking
+      if (lum >= 15 && lum <= 55 && Math.abs(r - g) <= 6 && Math.abs(g - b) <= 6) {
+        darkModeBgPixels++;
+      }
+      if (lum >= 238 && Math.abs(r - g) <= 4 && Math.abs(g - b) <= 4) {
+        lightModeBgPixels++;
+      }
+
+      // 4. Edge gradient calculation with neighbors
+      if (x < width - 1 && y < height - 1) {
+        const nextIdxX = (y * width + (x + 1)) * 4;
+        const nextIdxY = ((y + 1) * width + x) * 4;
+        const nextLumX = 0.2126 * data[nextIdxX] + 0.7152 * data[nextIdxX + 1] + 0.0722 * data[nextIdxX + 2];
+        const nextLumY = 0.2126 * data[nextIdxY] + 0.7152 * data[nextIdxY + 1] + 0.0722 * data[nextIdxY + 2];
+
+        const gradX = Math.abs(lum - nextLumX);
+        const gradY = Math.abs(lum - nextLumY);
+
+        if (gradX > 28 || gradY > 28) {
+          edgeCount++;
+        }
+
+        const diffR = Math.abs(r - data[nextIdxX]);
+        const diffG = Math.abs(g - data[nextIdxX + 1]);
+        const diffB = Math.abs(b - data[nextIdxX + 2]);
+        if (diffR === 0 && diffG === 0 && diffB === 0) {
+          consecutiveFlat++;
+          if (consecutiveFlat > 20) {
+            flatRunCount++;
+          }
+        } else {
+          consecutiveFlat = 1;
+        }
+      }
+    }
+  }
+
+  const avgLuminance = totalLuminance / totalPixels;
+  const edgeDensity = (edgeCount / totalPixels) * 100;
+  const skyCoverage = (skyPixels / totalPixels) * 100;
+  const upperSkyCoverage = (upperSkyPixels / upperHalfPixels) * 100;
+  const skinPercentage = (skinPixels / totalPixels) * 100;
+  const upperSkinPercentage = (upperSkinPixels / upperHalfPixels) * 100;
+  const flatLineRatio = (flatRunCount / totalPixels) * 100;
+  const darkPixelPercentage = (darkPixels / totalPixels) * 100;
+  const clippedPixelPercentage = (clippedPixels / totalPixels) * 100;
+  const darkModeBgRatio = (darkModeBgPixels / totalPixels) * 100;
+  const lightModeBgRatio = (lightModeBgPixels / totalPixels) * 100;
+
+  const metrics: SceneValidationMetrics = {
+    edgeDensity: Math.round(edgeDensity * 10) / 10,
+    skyCoverage: Math.round(skyCoverage * 10) / 10,
+    upperSkyCoverage: Math.round(upperSkyCoverage * 10) / 10,
+    skinPercentage: Math.round(skinPercentage * 10) / 10,
+    upperSkinPercentage: Math.round(upperSkinPercentage * 10) / 10,
+    flatLineRatio: Math.round(flatLineRatio * 10) / 10,
+    avgLuminance: Math.round(avgLuminance * 10) / 10,
+    darkPixelPercentage: Math.round(darkPixelPercentage * 10) / 10,
+    clippedPixelPercentage: Math.round(clippedPixelPercentage * 10) / 10,
+  };
+
+  const reject = (type: SceneDetectedType, reason: string): SceneValidationResult => ({
+    sceneValid: false,
+    sceneQuality: "invalid",
+    detectedType: type,
+    rejectionReason: reason,
+    userMessage: {
+      title: "Observation rejected",
+      description: "This image does not appear to be a valid atmospheric sky observation.",
+      action: "Capture/upload an unobstructed outdoor sky image for radiometric analysis.",
+    },
+    metrics,
+  });
+
+  // 1. Extreme Exposure / Blackout / Covered Lens
+  if (darkPixelPercentage > 75 || avgLuminance < 18) {
+    return reject(
+      "extreme_exposure",
+      "Image is underexposed or obscured (possible lens cap or total occlusion)."
+    );
+  }
+
+  if (clippedPixelPercentage > 50 && edgeDensity < 2) {
+    return reject(
+      "extreme_exposure",
+      "Image sensor is heavily saturated/overexposed with complete loss of tonal separation."
+    );
+  }
+
+  // 2. Finger / Hand / Backlit Flesh covering lens
+  if ((skinPercentage > 45 || upperSkinPercentage > 40) && upperSkyCoverage < 25) {
+    return reject(
+      "finger_occlusion",
+      "Camera lens appears occluded by a finger, hand, or physical object."
+    );
+  }
+
+  // 3. Person / Portrait / Selfie
+  if (skinPercentage > 20 && upperSkyCoverage < 35) {
+    return reject(
+      "skin_person",
+      "Image contains a person or foreground subject rather than an open atmospheric sky."
+    );
+  }
+
+  // 4. Code / Editor Screenshot (Dark Mode or Light Mode)
+  const isDarkCodeScreenshot = darkModeBgRatio > 35 && edgeDensity > 6;
+  const isLightCodeScreenshot = lightModeBgRatio > 35 && edgeDensity > 7;
+  const isHighEdgeSynthetic = edgeDensity > 12 && (flatLineRatio > 1.5 || !exifHasCamera);
+
+  if (isDarkCodeScreenshot || isLightCodeScreenshot || isHighEdgeSynthetic) {
+    return reject(
+      "screenshot_code",
+      "Detected a code editor, terminal, or digital document screenshot."
+    );
+  }
+
+  // 5. Webpage / UI / Document Screenshot
+  if (edgeDensity > 10 && upperSkyCoverage < 30) {
+    return reject(
+      "screenshot_web",
+      "Detected a webpage, application interface, or graphic screenshot."
+    );
+  }
+
+  // 6. Indoor Scene / Zero Sky / Artificial Lighting
+  if (upperSkyCoverage < 25) {
+    return reject(
+      upperSkyCoverage < 10 ? "indoor_scene" : "insufficient_sky",
+      upperSkyCoverage < 10
+        ? "Image appears to be an indoor or enclosed environment with no visible sky."
+        : "Insufficient unobstructed sky region in the frame (minimum 35% required in upper frame)."
+    );
+  }
+
+  // 7. Valid Sky Detection (Clear, Cloudy, or Hazy)
+  if (upperSkyCoverage >= 40 && edgeDensity <= 7.5) {
+    let detectedType: SceneDetectedType = "clear_sky";
+    if (skyCoverage > 50 && avgLuminance > 140) {
+      detectedType = "cloudy_sky";
+    } else if (edgeDensity < 3.5 && skyCoverage > 45) {
+      detectedType = "hazy_sky";
+    }
+
+    return {
+      sceneValid: true,
+      sceneQuality: "valid",
+      detectedType,
+      userMessage: {
+        title: "Atmospheric observation verified",
+        description: "Valid outdoor sky region detected suitable for radiometric analysis.",
+        action: "Physics calculation active.",
+      },
+      metrics,
+    };
+  }
+
+  // 8. Uncertain / Borderline Sky
+  if (upperSkyCoverage >= 25 && upperSkyCoverage < 40) {
+    return {
+      sceneValid: true,
+      sceneQuality: "uncertain",
+      detectedType: "insufficient_sky",
+      rejectionReason: "Borderline sky coverage; obstructions or non-sky content may reduce estimation confidence.",
+      userMessage: {
+        title: "Uncertain observation quality",
+        description: "Borderline sky coverage; obstructions or non-sky content may reduce estimation confidence.",
+        action: "Framing warning active — consider capturing a more open sky observation.",
+      },
+      metrics,
+    };
+  }
+
+  return reject(
+    "insufficient_sky",
+    "This image does not appear to be a valid atmospheric sky observation."
+  );
+}
+
+export function validateImageScene(image: HTMLImageElement, exif?: ExifData): SceneValidationResult {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    throw new Error("Canvas analysis is unavailable in this browser.");
+  }
+  const scale = Math.min(1, 400 / Math.max(image.naturalWidth, image.naturalHeight));
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const exifHasCamera = Boolean(exif?.parsed.make && exif?.parsed.model);
+  return validateAtmosphericScene({ width: canvas.width, height: canvas.height, data: imageData.data }, exifHasCamera);
+}
+
 export const OBSERVATION_CONFIDENCE_LEVELS = { veryHigh: 90, high: 75, moderate: 60, low: 40 } as const;
 
 export type ObservationConfidenceFactor = { name: string; status: "good" | "warning"; impact: number; explanation: string };
@@ -292,9 +607,39 @@ export function estimateAirQuality(tau: number) {
   };
 }
 
-export function analyzeObservationQuality(stats: PixelStats, exif: ExifData, radiometry: ReturnType<typeof calculateRadiometry>): ObservationConfidence {
+export function analyzeObservationQuality(
+  stats: PixelStats,
+  exif: ExifData,
+  radiometry: ReturnType<typeof calculateRadiometry>,
+  sceneValidation?: SceneValidationResult | null
+): ObservationConfidence {
   const factors: ObservationConfidenceFactor[] = [];
   const addFactor = (name: string, impact: number, explanation: string, goodExplanation: string) => factors.push({ name, status: impact === 0 ? "good" : "warning", impact, explanation: impact === 0 ? goodExplanation : explanation });
+
+  if (sceneValidation) {
+    if (sceneValidation.sceneQuality === "uncertain") {
+      addFactor(
+        "Scene framing / sky purity",
+        -35,
+        sceneValidation.rejectionReason || "Borderline sky coverage; obstructions or non-sky content may reduce estimation confidence.",
+        "Observation framing confirms an unobstructed atmospheric sky."
+      );
+    } else if (sceneValidation.sceneQuality === "invalid") {
+      addFactor(
+        "Scene validation",
+        -100,
+        sceneValidation.rejectionReason || "Image rejected as non-atmospheric observation.",
+        "Observation verified as atmospheric sky."
+      );
+    } else {
+      addFactor(
+        "Scene framing / sky purity",
+        0,
+        "",
+        "Atmospheric sky observation verified with valid radiance characteristics."
+      );
+    }
+  }
 
   const exposurePenalty = Math.min(22, (stats.darkPixelPercentage > 35 ? 15 : stats.darkPixelPercentage > 20 ? 8 : 0) + (stats.clippedPixelPercentage > 8 ? 15 : stats.clippedPixelPercentage > 2 ? 8 : 0) + (stats.dynamicRange < 45 ? 12 : 0));
   addFactor("Exposure and tonal range", -exposurePenalty, stats.darkPixelPercentage > 35 ? "Low-light conditions may reduce radiometric reliability." : stats.clippedPixelPercentage > 2 ? "Image appears overexposed; sky radiance may be clipped." : "Image has limited useful tonal separation.", "Exposure has a usable tonal range.");

@@ -21,6 +21,7 @@ export interface GroundTruthResult {
   comparisonAvailable: boolean;
   locationSource: string;
   stationName: string;
+  agencyName?: string;
   city: string;
   country: string;
   pm25: number | null;
@@ -69,6 +70,100 @@ export const KNOWN_CITIES: Record<string, { name: string; lat: number; lon: numb
   "san francisco": { name: "San Francisco, US", lat: 37.7749, lon: -122.4194 },
   "los angeles": { name: "Los Angeles, US", lat: 34.0522, lon: -118.2437 },
 };
+
+export interface ObservationLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp: string;
+  source: "browser-gps" | "exif_gps" | "user_selected" | "preset_demo";
+  localityName?: string;
+}
+
+export function isValidCoordinate(lat: unknown, lon: unknown): boolean {
+  return (
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
+export function formatMinutesAgo(isoDateStr?: string): string {
+  if (!isoDateStr) return "recently";
+  const time = new Date(isoDateStr).getTime();
+  if (Number.isNaN(time)) return "recently";
+  const diffMs = Math.max(0, Date.now() - time);
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+export async function reverseGeocodeCoordinates(lat: number, lon: number): Promise<string> {
+  if (!isValidCoordinate(lat, lon)) {
+    return "Invalid coordinates";
+  }
+
+  // 1. Regional proximity match to known hubs (instant & offline-resilient)
+  for (const city of Object.values(KNOWN_CITIES)) {
+    const dist = calculateHaversineDistanceKm(lat, lon, city.lat, city.lon);
+    if (dist <= 25) {
+      return city.name;
+    }
+  }
+
+  // 2. Client-side reverse geocoding via OpenStreetMap Nominatim with strict timeout
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`,
+      {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = (await res.json()) as {
+        address?: {
+          suburb?: string;
+          neighbourhood?: string;
+          residential?: string;
+          city?: string;
+          town?: string;
+          village?: string;
+          state?: string;
+        };
+        display_name?: string;
+      };
+      const addr = data.address;
+      const sub = addr?.suburb || addr?.neighbourhood || addr?.residential;
+      const city = addr?.city || addr?.town || addr?.village;
+      const state = addr?.state;
+
+      if (sub && city) return `${sub}, ${city}`;
+      if (city && state) return `${city}, ${state}`;
+      if (city) return city;
+      if (data.display_name) {
+        return data.display_name.split(",").slice(0, 2).join(",").trim();
+      }
+    }
+  } catch {
+    // Ignore network failure and fall through
+  }
+
+  return `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
+}
 
 export interface ResolvedLocation {
   lat: number;
@@ -229,7 +324,7 @@ function presetGroundTruth(latitude?: number, longitude?: number, reason?: strin
   };
 }
 
-export function unavailableGroundTruth(locationSource: string, reason: string, observationTimestamp?: string): GroundTruthResult {
+export function unavailableGroundTruth(locationSource: string, reason?: string, observationTimestamp?: string): GroundTruthResult {
   return {
     success: false,
     isLiveApi: false,
@@ -238,7 +333,7 @@ export function unavailableGroundTruth(locationSource: string, reason: string, o
     isGeographicallyRelevant: false,
     comparisonAvailable: false,
     locationSource,
-    stationName: "Reference station unavailable",
+    stationName: "No nearby reference station available",
     city: "",
     country: "",
     pm25: null,
@@ -248,7 +343,7 @@ export function unavailableGroundTruth(locationSource: string, reason: string, o
     observationTimestamp,
     lastUpdated: new Date().toISOString(),
     attribution: "OpenAQ Global Community Air Quality Database (v3 API)",
-    fallbackReason: reason,
+    fallbackReason: reason || "No geographically representative OpenAQ station was found for this observation.",
   };
 }
 
@@ -257,18 +352,20 @@ export function getPresetGroundTruth(latitude?: number, longitude?: number) {
 }
 
 export async function fetchAirQualityForObservation(
-  location: ResolvedLocation | null,
+  location: ResolvedLocation | ObservationLocation | null,
   observationTimestamp?: string
 ): Promise<GroundTruthResult> {
-  if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lon)) {
+  const lat = location && "latitude" in location ? location.latitude : (location as ResolvedLocation)?.lat;
+  const lon = location && "longitude" in location ? location.longitude : (location as ResolvedLocation)?.lon;
+  const source = location?.source || "missing_location";
+
+  if (!isValidCoordinate(lat, lon)) {
     return unavailableGroundTruth(
-      "missing_location",
-      "Image location unavailable. A geographically valid OpenAQ reference could not be selected.",
+      source,
+      "No geographically representative OpenAQ station was found for this observation.",
       observationTimestamp
     );
   }
-
-  const { lat, lon, source } = location;
 
   try {
     const apiKey = typeof window !== "undefined" ? localStorage.getItem("tropos_openaq_api_key") || "" : "";
@@ -286,14 +383,11 @@ export async function fetchAirQualityForObservation(
     window.clearTimeout(timeout);
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        return unavailableGroundTruth(
-          source,
-          "OpenAQ reference unavailable — OpenAQ API key required to query live stations.",
-          observationTimestamp
-        );
-      }
-      throw new Error(`OpenAQ returned HTTP ${response.status}.`);
+      return unavailableGroundTruth(
+        source,
+        "No geographically representative OpenAQ station was found for this observation.",
+        observationTimestamp
+      );
     }
 
     const json = (await response.json()) as {
@@ -317,7 +411,7 @@ export async function fetchAirQualityForObservation(
       )
       .map((candidate) => ({
         candidate,
-        distance: calculateHaversineDistanceKm(lat, lon, candidate.coordinates!.latitude!, candidate.coordinates!.longitude!),
+        distance: calculateHaversineDistanceKm(lat!, lon!, candidate.coordinates!.latitude!, candidate.coordinates!.longitude!),
       }))
       .filter(({ distance }) => Number.isFinite(distance) && distance <= MAX_CORROBORATION_DISTANCE_KM)
       .sort((left, right) => left.distance - right.distance);
@@ -329,7 +423,7 @@ export async function fetchAirQualityForObservation(
     if (!selected) {
       return unavailableGroundTruth(
         source,
-        `No nearby OpenAQ station with valid PM2.5 data within ${MAX_CORROBORATION_DISTANCE_KM} km could be validated.`,
+        "No geographically representative OpenAQ station was found for this observation.",
         observationTimestamp
       );
     }
@@ -351,7 +445,7 @@ export async function fetchAirQualityForObservation(
     }
 
     if (pm25 === null || !Number.isFinite(pm25)) {
-      return unavailableGroundTruth(source, "Nearby OpenAQ station did not provide a valid PM2.5 measurement.", observationTimestamp);
+      return unavailableGroundTruth(source, "No geographically representative OpenAQ station was found for this observation.", observationTimestamp);
     }
 
     const stationDistance = selected.distance;
@@ -369,6 +463,32 @@ export async function fetchAirQualityForObservation(
     const comparisonAvailable = isGeographicallyRelevant && timestampsComparable;
     const epa = calculateEpaAqiFromPm25(pm25);
 
+    // Identify statutory agency
+    let agencyName = "OpenAQ";
+    const stationLower = (station.name || "").toLowerCase();
+    const localityLower = (station.locality || station.city || "").toLowerCase();
+    if (
+      stationLower.includes("mppcb") ||
+      stationLower.includes("indore") ||
+      localityLower.includes("indore") ||
+      stationLower.includes("bhopal") ||
+      localityLower.includes("bhopal") ||
+      stationLower.includes("madhya pradesh")
+    ) {
+      agencyName = "OpenAQ / MPPCB";
+    } else if (
+      stationLower.includes("dpcc") ||
+      stationLower.includes("delhi") ||
+      localityLower.includes("delhi")
+    ) {
+      agencyName = "OpenAQ / DPCC";
+    } else if (
+      stationLower.includes("cpcb") ||
+      stationLower.includes("central pollution control board")
+    ) {
+      agencyName = "OpenAQ / CPCB";
+    }
+
     return {
       success: true,
       isLiveApi: true,
@@ -377,7 +497,8 @@ export async function fetchAirQualityForObservation(
       isGeographicallyRelevant,
       comparisonAvailable,
       locationSource: source,
-      stationName: station.name || "Nearby OpenAQ station",
+      stationName: station.name || "Nearby monitoring station",
+      agencyName,
       city: station.locality || station.city || "Regional station",
       country: station.country?.code || "Unknown",
       pm25,
@@ -390,7 +511,7 @@ export async function fetchAirQualityForObservation(
       observationTimestamp,
       referenceTimestamp,
       lastUpdated: referenceTimestamp || new Date().toISOString(),
-      attribution: "OpenAQ Global Community Air Quality Database (v3 API)",
+      attribution: `${agencyName} via OpenAQ Database (v3 API)`,
       fallbackReason: !isGeographicallyRelevant
         ? `Station is outside the acceptable radius of ${MAX_CORROBORATION_DISTANCE_KM} km.`
         : !timestampsComparable
@@ -400,7 +521,7 @@ export async function fetchAirQualityForObservation(
   } catch (error) {
     return unavailableGroundTruth(
       source,
-      error instanceof Error ? error.message : "OpenAQ reference unavailable.",
+      "No geographically representative OpenAQ station was found for this observation.",
       observationTimestamp
     );
   }
@@ -432,13 +553,23 @@ export function compareRadiometryWithGroundTruth(radiometryAqi: number, groundTr
       absoluteError: null,
       percentageError: null,
       verdict: "Reference comparison unavailable",
+      isDivergent: false,
+      divergenceExplanation: undefined,
     };
   }
   const deltaAqi = radiometryAqi - groundTruth.aqi;
   const absoluteError = Math.abs(deltaAqi);
   const percentageError = groundTruth.aqi > 0 ? Math.round((absoluteError / groundTruth.aqi) * 100) : 0;
-  const verdict = absoluteError > 35 ? "Notable divergence" : absoluteError > 15 ? "Moderate concordance" : "High concordance";
-  return { available: true, deltaAqi, absoluteError, percentageError, verdict };
+  const isDivergent = absoluteError > 35;
+  const verdict = isDivergent
+    ? "Significant local divergence"
+    : absoluteError > 15
+    ? "Moderate concordance"
+    : "High concordance";
+  const divergenceExplanation = isDivergent
+    ? "Camera-derived estimate differs substantially from the nearby monitoring reference."
+    : undefined;
+  return { available: true, deltaAqi, absoluteError, percentageError, verdict, isDivergent, divergenceExplanation };
 }
 
 function syntheticVision(tau: number, aqi: number): VisionResult {

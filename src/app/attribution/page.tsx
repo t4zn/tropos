@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import dynamic from "next/dynamic";
@@ -10,7 +10,7 @@ import { computeAttribution } from "@/lib/attribution";
 
 const CorridorMap = dynamic(() => import("@/components/CorridorMap"), { ssr: false });
 
-export default function AttributionPage() {
+function AttributionContent() {
   const searchParams = useSearchParams();
   const stationId = searchParams?.get("station") ?? null;
   const { stations, wind, isLoading } = useCorridorData();
@@ -68,6 +68,7 @@ export default function AttributionPage() {
       setResult(r);
       setLoading(false);
     }
+
     run();
   }, [receptor, lookbackHours, wind]);
 
@@ -181,5 +182,13 @@ export default function AttributionPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function AttributionPage() {
+  return (
+    <Suspense fallback={<div className="container-wide" style={{ padding: "80px 0", textAlign: "center", color: "var(--color-ink-muted-48)" }}>Loading corridor attribution...</div>}>
+      <AttributionContent />
+    </Suspense>
   );
 }
