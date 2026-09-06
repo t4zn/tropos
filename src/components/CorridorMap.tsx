@@ -307,7 +307,7 @@ export default function CorridorMap({
               <span style={{ fontSize: "13px", fontWeight: 600 }}>{activeStation.name}</span>
             </div>
             <div style={{ fontSize: "11px", color: "#8e8e93", marginTop: "2px" }}>
-              {activeStation.status} · {activeStation.provider || (activeStation.source === "openaq" ? "OpenAQ" : "CPCB")}
+              {activeStation.status} · {activeStation.provider || "OpenWeather"}
             </div>
           </div>
 

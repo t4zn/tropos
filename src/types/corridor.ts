@@ -32,6 +32,8 @@ export interface CorridorStation {
   source: "open-meteo" | "google" | "openaq" | "openweather" | "fallback";
   /** Network/Provider name (e.g. CPCB, DPCC, IMD, US Embassy) */
   provider?: string;
+  /** Sub-region or city area (e.g. Delhi, Noida, Gurugram, Faridabad, Ghaziabad) */
+  area?: string;
   /** ISO timestamp of direct sensor telemetry observation */
   observationTime?: string;
   /** ISO timestamp of data retrieval */
