@@ -36,6 +36,31 @@ export async function POST(request: Request) {
     let parsed: Record<string, unknown> | null = null;
     let providerUsed = "";
 
+    const promptText = `You are an expert atmospheric scientist and computer vision specialist analyzing an outdoor sky and horizon photograph taken at ${locationName}.
+The ground photometer or sensor recorded an aerosol optical depth (AOD / tau) of ~${opticalDepth} and an estimated AQI of ~${aqi}.
+
+Carefully analyze the image for:
+1. Sky clarity, color saturation, and horizon contrast degradation (Rayleigh scattering vs Mie aerosol extinction).
+2. Distant landmark extinction distance and visual haze severity.
+3. Discrimination between natural clouds (condensed water droplets/ice) and anthropogenic particulate aerosol/smog.
+4. Sky turbidity rating.
+5. Whether the visual evidence corroborates or contradicts the ground sensor's measured optical depth and AQI.
+
+Respond ONLY with a valid JSON object strictly matching this schema:
+{
+  "hazeSeverity": "clean" | "low" | "moderate" | "heavy" | "severe" | "extreme",
+  "hazeDescription": "Detailed 1-2 sentence description of particulate haze, horizon visibility, and atmospheric clarity.",
+  "estimatedAodTau": <number, visual estimate of aerosol optical depth tau, e.g. 0.05 to 1.8>,
+  "estimatedAqi": <number, visual estimate of AQI 0 to 500>,
+  "aqiCategory": "Good" | "Moderate" | "Unhealthy for Sensitive Groups" | "Unhealthy" | "Very Unhealthy" | "Hazardous",
+  "cloudCoveragePercent": <number between 0 and 100>,
+  "cloudType": "Clear" | "Cirrus" | "Cumulus" | "Stratus" | "Overcast" | "Smog / Haze",
+  "aerosolVsCloudConfidence": <number between 0.50 and 0.99 reflecting confidence in separating aerosol haze from meteorological clouds>,
+  "skyTurbidityRating": "low" | "moderate" | "high" | "turbid" | "extreme",
+  "visualClarity": "Description of horizon contrast, landmark extinction, and viewing range.",
+  "radiometricCorroboration": "Analysis comparing visual findings to the ground sensor measurement (tau=${opticalDepth}, AQI=${aqi})."
+}`;
+
     // 1. Try Groq Vision first if GROQ_API_KEY is configured (ultra-fast sub-second LPU)
     if (groqKey) {
       try {
