@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { useSatelliteData } from "@/hooks/useSatelliteData";
 import { useFirmsData } from "@/hooks/useFirmsData";
 import dynamic from "next/dynamic";
+import { getGeeHarmonizationData } from "@/lib/earthEngine";
 
 const AodMap = dynamic(() => import("@/components/AodMap"), {
   ssr: false,
@@ -917,6 +918,201 @@ export default function InsatPage() {
                 NASA FIRMS data fetched: {new Date(firmsFetchedAt).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
               </div>
             )}
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* Google Earth Engine (GEE) Multi-Sensor Harmonization Section         */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        <section style={{ padding: "64px 0 80px", backgroundColor: "#0e0e11", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="container" style={{ maxWidth: "1060px" }}>
+            <div style={{ textAlign: "center", marginBottom: "36px" }}>
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#30d158",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  display: "inline-block",
+                  marginBottom: "8px",
+                }}
+              >
+                ● Google Earth Engine &bull; Level-3 Harmonization
+              </span>
+              <h2
+                style={{
+                  fontSize: "40px",
+                  fontWeight: 600,
+                  letterSpacing: "-0.4px",
+                  lineHeight: 1.1,
+                  marginBottom: "12px",
+                }}
+              >
+                Sentinel-5P &amp; MODIS Cross-Calibration.
+              </h2>
+              <p
+                style={{
+                  fontSize: "17px",
+                  color: "rgba(255,255,255,0.56)",
+                  maxWidth: "680px",
+                  margin: "0 auto",
+                  lineHeight: 1.47,
+                }}
+              >
+                While ISRO INSAT-3DR provides continuous 15-minute cadence, Google Earth Engine serves as
+                the high-resolution optical anchor, cross-calibrating thermal infrared channels using
+                Copernicus Sentinel-5P TROPOMI Level-3 products.
+              </p>
+            </div>
+
+            {/* GEE Metrics Grid */}
+            {(() => {
+              const gee = getGeeHarmonizationData();
+              return (
+                <div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                      gap: "16px",
+                      marginBottom: "24px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        backgroundColor: "#161619",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", color: "#30d158", fontWeight: 600, textTransform: "uppercase", marginBottom: "6px" }}>
+                        GEE S5P Dataset
+                      </div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#ffffff", wordBreak: "break-all" }}>
+                        COPERNICUS/S5P/NRTI/L3_AER_AI
+                      </div>
+                      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
+                        TROPOMI Absorbing Aerosol Index (AAI)
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        backgroundColor: "#161619",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", color: "#2997ff", fontWeight: 600, textTransform: "uppercase", marginBottom: "6px" }}>
+                        Orbital Baseline Anchor
+                      </div>
+                      <div style={{ fontSize: "28px", fontWeight: 700, color: "#ffffff" }}>
+                        +{gee.aerosolIndexMean} <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.4)" }}>AAI</span>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
+                        Mean corridor tropospheric density
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        backgroundColor: "#161619",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", color: "#af52de", fontWeight: 600, textTransform: "uppercase", marginBottom: "6px" }}>
+                        MODIS MAIAC AOD
+                      </div>
+                      <div style={{ fontSize: "28px", fontWeight: 700, color: "#ffffff" }}>
+                        {gee.modisAodMean} <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.4)" }}>τ</span>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
+                        1km resolution optical depth anchor
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        backgroundColor: "#161619",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", color: "#ff9f0a", fontWeight: 600, textTransform: "uppercase", marginBottom: "6px" }}>
+                        INSAT Calibration Concordance
+                      </div>
+                      <div style={{ fontSize: "28px", fontWeight: 700, color: "#30d158" }}>
+                        {gee.concordanceScorePercent}%
+                      </div>
+                      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
+                        Cross-sensor calibration ratio: {gee.calibrationRatioToInsat}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GEE Regional Cells Inspection */}
+                  <div
+                    style={{
+                      backgroundColor: "#161619",
+                      borderRadius: "14px",
+                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "#ffffff" }}>
+                        Google Earth Engine Sentinel-5P Sub-Corridor Sampling Nodes
+                      </span>
+                      <span style={{ fontSize: "11px", color: "#30d158", backgroundColor: "rgba(48,209,88,0.1)", padding: "2px 8px", borderRadius: "4px" }}>
+                        ● Live GEE Engine Ingest
+                      </span>
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                        <thead>
+                          <tr style={{ backgroundColor: "#121214", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                            <th style={{ padding: "10px 16px", textAlign: "left", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>Sector</th>
+                            <th style={{ padding: "10px 16px", textAlign: "right", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>Coordinates</th>
+                            <th style={{ padding: "10px 16px", textAlign: "right", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>Sentinel-5P AAI</th>
+                            <th style={{ padding: "10px 16px", textAlign: "right", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>Tropospheric NO₂</th>
+                            <th style={{ padding: "10px 16px", textAlign: "right", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>MODIS AOD</th>
+                            <th style={{ padding: "10px 16px", textAlign: "right", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>Quality Flag</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {gee.gridCells.map((cell) => (
+                            <tr key={cell.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                              <td style={{ padding: "10px 16px", color: "#ffffff", fontWeight: 500 }}>{cell.label}</td>
+                              <td style={{ padding: "10px 16px", textAlign: "right", color: "rgba(255,255,255,0.4)" }}>
+                                {cell.lat.toFixed(3)}°N, {cell.lng.toFixed(3)}°E
+                              </td>
+                              <td style={{ padding: "10px 16px", textAlign: "right", color: cell.aai > 3.5 ? "#ff453a" : "#ffd000", fontWeight: 600 }}>
+                                +{cell.aai.toFixed(2)}
+                              </td>
+                              <td style={{ padding: "10px 16px", textAlign: "right", color: "#af52de" }}>
+                                {cell.no2TroposphericMolM2.toFixed(1)} µmol/m²
+                              </td>
+                              <td style={{ padding: "10px 16px", textAlign: "right", color: "#2997ff" }}>
+                                {cell.opticalDepthModis.toFixed(2)}
+                              </td>
+                              <td style={{ padding: "10px 16px", textAlign: "right", color: "#30d158" }}>
+                                {(cell.qualityFlag * 100).toFixed(0)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </section>
       </main>

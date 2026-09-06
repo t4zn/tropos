@@ -40,7 +40,7 @@ export default function HomePage() {
               }}
             >
               A federated atmospheric intelligence platform for Indian economic corridors.
-              Fusing ISRO geostationary telemetry with edge citizen radiometry.
+              Fusing ISRO geostationary telemetry, Google Earth Engine Sentinel-5P harmonization, and edge citizen radiometry.
             </p>
 
             <div className="hero-button-group">
@@ -204,7 +204,7 @@ export default function HomePage() {
                 </h3>
                 <p className="caption" style={{ color: "var(--color-body-muted)", marginBottom: "var(--spacing-lg)" }}>
                   NASA polar satellites pass India only twice a day. ISRO INSAT-3DR continuously captures
-                  Aerosol Optical Depth (AOD) every 15 minutes.
+                  optical depth every 15 minutes, cross-calibrated with Google Earth Engine Sentinel-5P TROPOMI baselines.
                 </p>
                 <Link href="/insat" className="text-link-on-dark" style={{ fontSize: "14px" }}>
                   Explore orbital cadence &rarr;

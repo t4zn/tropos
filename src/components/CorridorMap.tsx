@@ -53,6 +53,8 @@ interface CorridorMapProps {
   candidates?: Array<{ id: string; lat: number; lng: number; name: string }>;
   highlightedSourceId?: string | null;
   onMapReady?: (map: import("leaflet").Map) => void;
+  geeLayer?: "none" | "s5p-aai" | "s5p-no2";
+  onGeeLayerChange?: (layer: "none" | "s5p-aai" | "s5p-no2") => void;
 }
 
 export default function CorridorMap({
@@ -66,14 +68,18 @@ export default function CorridorMap({
   candidates,
   highlightedSourceId,
   onMapReady,
+  geeLayer = "none",
+  onGeeLayerChange,
 }: CorridorMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const markersRef = useRef<import("leaflet").Marker[]>([]);
+  const geeLayersRef = useRef<import("leaflet").Layer[]>([]);
 
   // States
   const [mapReady, setMapReady] = useState(false);
   const [hoveredStation, setHoveredStation] = useState<CorridorStation | null>(null);
+  const [activeGeeLayer, setActiveGeeLayer] = useState<"none" | "s5p-aai" | "s5p-no2">(geeLayer);
 
   const activeStation = hoveredStation || selectedStation;
 
@@ -95,23 +101,32 @@ export default function CorridorMap({
         container._leaflet_id = null;
       }
 
-      const delhiBounds = L.latLngBounds(
-        [28.30, 76.84],
-        [28.90, 77.60]
+      const corridorBounds = L.latLngBounds(
+        [27.5, 74.5],
+        [31.8, 78.5]
       );
 
+      const initialCenter: [number, number] = selectedStation
+        ? [selectedStation.lat, selectedStation.lng]
+        : [28.6139, 77.209];
+
       const map = L.map(container, {
-        center: [28.6139, 77.209],
-        zoom: 10,
-        minZoom: 10,
-        maxZoom: 16,
-        maxBounds: delhiBounds,
-        maxBoundsViscosity: 1.0,
+        center: initialCenter,
+        zoom: selectedStation ? 11 : 10,
+        minZoom: 6,
+        maxZoom: 18,
+        maxBounds: corridorBounds,
+        maxBoundsViscosity: 0.6,
         zoomControl: false,
         attributionControl: false,
       });
 
-      map.fitBounds(delhiBounds, { padding: [16, 16] });
+      if (selectedStation) {
+        map.setView([selectedStation.lat, selectedStation.lng], 11);
+      } else {
+        const delhiBounds = L.latLngBounds([28.30, 76.84], [28.90, 77.60]);
+        map.fitBounds(delhiBounds, { padding: [16, 16] });
+      }
 
       if (isCancelled) {
         map.remove();
@@ -249,22 +264,71 @@ export default function CorridorMap({
     if (candidates && candidates.length > 0) {
       candidates.forEach((c) => {
         try {
-          const m = leaflet.circleMarker([c.lat, c.lng], { radius: 6, color: '#2997ff', fillColor: '#2997ff', fillOpacity: 0.95 }).addTo(map);
+          const isHighlighted = highlightedSourceId === c.id;
+          const m = leaflet.circleMarker([c.lat, c.lng], {
+            radius: isHighlighted ? 9 : 6,
+            color: isHighlighted ? "#ff2d55" : "#2997ff",
+            fillColor: isHighlighted ? "#ff2d55" : "#2997ff",
+            fillOpacity: isHighlighted ? 1.0 : 0.9,
+            weight: isHighlighted ? 3 : 1.5,
+          }).addTo(map);
+
+          m.bindTooltip(`🏭 ${c.name}`, {
+            direction: "top",
+            offset: [0, -8],
+            className: isHighlighted ? "tropos-tooltip-highlight" : "tropos-tooltip",
+          });
+
+          if (isHighlighted) {
+            m.openTooltip();
+          }
+
           (map as any)._troposOverlayLayers.push(m);
         } catch {}
       });
     }
 
-    // Highlight probable source (if it matches a station id)
+    // Auto-fit map to fit receptor, plume, and candidate emitters so nothing is hidden off-screen
+    if ((particlePaths && particlePaths.length > 0) || (candidates && candidates.length > 0)) {
+      try {
+        const boundsPoints: [number, number][] = [];
+        if (selectedStation) {
+          boundsPoints.push([selectedStation.lat, selectedStation.lng]);
+        }
+        candidates?.forEach((c) => boundsPoints.push([c.lat, c.lng]));
+        particlePaths?.forEach((path) => {
+          const end = path[path.length - 1];
+          if (end) boundsPoints.push([end.lat, end.lng]);
+        });
+
+        if (boundsPoints.length >= 2) {
+          const bounds = leaflet.latLngBounds(boundsPoints);
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+        }
+      } catch {}
+    }
+
+    // Highlight and pan to selected candidate source
     if (highlightedSourceId) {
-      const st = stations.find((s) => s.id === highlightedSourceId);
-      if (st) {
+      const cand = candidates?.find((c) => c.id === highlightedSourceId);
+      if (cand) {
         try {
-          const m = leaflet.circleMarker([st.lat, st.lng], { radius: 8, color: '#ff2d55', fillColor: '#ff2d55', fillOpacity: 0.98 }).addTo(map);
-          (map as any)._troposOverlayLayers.push(m);
-          // pan a little towards source for emphasis
-          // map.panTo([st.lat, st.lng]);
+          map.flyTo([cand.lat, cand.lng], 13, { duration: 0.6 });
         } catch {}
+      } else {
+        const st = stations.find((s) => s.id === highlightedSourceId);
+        if (st) {
+          try {
+            const m = leaflet.circleMarker([st.lat, st.lng], {
+              radius: 9,
+              color: "#ff2d55",
+              fillColor: "#ff2d55",
+              fillOpacity: 0.98,
+              weight: 3,
+            }).addTo(map);
+            (map as any)._troposOverlayLayers.push(m);
+          } catch {}
+        }
       }
     }
 
@@ -278,6 +342,73 @@ export default function CorridorMap({
       (map as any)._troposOverlayLayers = [];
     };
   }, [mapReady, particlePaths, envelope, candidates, highlightedSourceId, stations, onMapReady]);
+
+  // ─── 5. Render Google Earth Engine (GEE) Sentinel-5P Layers ──────────────
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !L) return;
+    const map = mapInstanceRef.current;
+    const leaflet = L;
+
+    // Clear previous GEE layers
+    geeLayersRef.current.forEach((layer) => map.removeLayer(layer));
+    geeLayersRef.current = [];
+
+    if (activeGeeLayer === "none") return;
+
+    // Dynamically import GEE data
+    import("@/lib/earthEngine").then(({ getGeeHarmonizationData }) => {
+      const geeData = getGeeHarmonizationData();
+
+      geeData.gridCells.forEach((cell) => {
+        const isAai = activeGeeLayer === "s5p-aai";
+        const val = isAai ? cell.aai : cell.no2TroposphericMolM2;
+
+        // Color coding matching Copernicus Sentinel-5P palettes
+        let fillColor = "#ffd000";
+        if (isAai) {
+          fillColor = cell.aai > 3.5 ? "#be123c" : cell.aai > 2.5 ? "#f97316" : "#eab308";
+        } else {
+          fillColor = cell.no2TroposphericMolM2 > 65 ? "#7c3aed" : cell.no2TroposphericMolM2 > 45 ? "#2563eb" : "#06b6d4";
+        }
+
+        // Create 3.5km TROPOMI satellite resolution footprint
+        const circle = leaflet.circle([cell.lat, cell.lng], {
+          radius: 3800,
+          color: fillColor,
+          fillColor: fillColor,
+          fillOpacity: 0.28,
+          weight: 1.5,
+          dashArray: "4, 4",
+        }).addTo(map);
+
+        circle.bindTooltip(
+          `<div style="font-family: var(--font-inter, sans-serif); padding: 4px 6px;">
+            <div style="font-size: 10px; font-weight: 700; color: #2563eb; text-transform: uppercase;">Google Earth Engine • S5P</div>
+            <div style="font-size: 12px; font-weight: 600; color: #ffffff; margin: 2px 0;">${cell.label}</div>
+            <div style="font-size: 11px; color: #cbd5e1;">
+              ${isAai ? `Absorbing Aerosol Index: <b>${cell.aai.toFixed(2)}</b>` : `Tropospheric NO₂: <b>${cell.no2TroposphericMolM2.toFixed(1)} µmol/m²</b>`}
+            </div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+              MODIS AOD: ${cell.opticalDepthModis.toFixed(2)} · Inversion Lid: ${cell.pblHeightM}m
+            </div>
+          </div>`,
+          { className: "tropos-tooltip", sticky: true }
+        );
+
+        geeLayersRef.current.push(circle);
+      });
+    });
+
+    return () => {
+      geeLayersRef.current.forEach((layer) => map.removeLayer(layer));
+      geeLayersRef.current = [];
+    };
+  }, [activeGeeLayer, mapReady]);
+
+  const handleLayerSwitch = (newLayer: "none" | "s5p-aai" | "s5p-no2") => {
+    setActiveGeeLayer(newLayer);
+    if (onGeeLayerChange) onGeeLayerChange(newLayer);
+  };
 
   return (
     <div
@@ -295,6 +426,110 @@ export default function CorridorMap({
         ref={mapContainerRef}
         style={{ width: "100%", height: "100%", zIndex: 1 }}
       />
+
+      {/* ── TOP-LEFT: Google Earth Engine Orbital Telemetry Badge ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "16px",
+          left: "16px",
+          zIndex: 10,
+          backgroundColor: "rgba(18, 18, 20, 0.82)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderRadius: "9999px",
+          padding: "6px 14px",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          color: "#ffffff",
+          fontSize: "12px",
+          fontWeight: 500,
+          pointerEvents: "none",
+        }}
+      >
+        <span
+          style={{
+            width: "7px",
+            height: "7px",
+            borderRadius: "50%",
+            backgroundColor: "#22c55e",
+            boxShadow: "0 0 8px #22c55e",
+          }}
+        />
+        <span>Google Earth Engine &bull; Sentinel-5P TROPOMI</span>
+      </div>
+
+      {/* ── TOP-RIGHT: Google Earth Engine Layer Switcher ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "16px",
+          right: "16px",
+          zIndex: 10,
+          backgroundColor: "rgba(18, 18, 20, 0.85)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderRadius: "12px",
+          padding: "4px",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          display: "flex",
+          gap: "4px",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => handleLayerSwitch("none")}
+          style={{
+            background: activeGeeLayer === "none" ? "#0066cc" : "transparent",
+            color: activeGeeLayer === "none" ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+            border: "none",
+            borderRadius: "8px",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Ground Stations
+        </button>
+        <button
+          type="button"
+          onClick={() => handleLayerSwitch("s5p-aai")}
+          style={{
+            background: activeGeeLayer === "s5p-aai" ? "#0066cc" : "transparent",
+            color: activeGeeLayer === "s5p-aai" ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+            border: "none",
+            borderRadius: "8px",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          GEE S5P Aerosols (AAI)
+        </button>
+        <button
+          type="button"
+          onClick={() => handleLayerSwitch("s5p-no2")}
+          style={{
+            background: activeGeeLayer === "s5p-no2" ? "#0066cc" : "transparent",
+            color: activeGeeLayer === "s5p-no2" ? "#ffffff" : "rgba(255, 255, 255, 0.65)",
+            border: "none",
+            borderRadius: "8px",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          GEE S5P NO₂
+        </button>
+      </div>
 
       {/* ── BOTTOM-CENTER: Quick Station Card ── */}
       {activeStation && (

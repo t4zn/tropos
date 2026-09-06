@@ -36,6 +36,7 @@ import {
   unavailableGroundTruth,
   VisionResult,
 } from "./radiometryServices";
+import { getGeeOrbitalAnchorForCoordinate } from "@/lib/earthEngine";
 
 type Overrides = { fNumber?: number; iso?: number; exposureTime?: number };
 type ImageState = { url: string; name: string; size: number; isDemo?: boolean };
@@ -101,21 +102,44 @@ export default function RadiometryPage() {
     ? { lat: observationLocation.latitude, lon: observationLocation.longitude }
     : activeLocation;
 
-  const radiometry = calculateRadiometry(
-    stats,
-    exif,
-    baseline,
-    overrides,
-    {
-      latitude: effectiveCoordinates?.lat,
-      longitude: effectiveCoordinates?.lon,
-      dateTimeOriginal: exif.parsed.dateTimeOriginal,
-    }
-  );
-  const air = estimateAirQuality(radiometry.opticalDepth);
-  const observation = analyzeObservationQuality(stats, exif, radiometry, sceneValidation);
+  const isAtmosphericSky = sceneValidation.sceneValid;
+
+  const radiometry = isAtmosphericSky
+    ? calculateRadiometry(
+        stats,
+        exif,
+        baseline,
+        overrides,
+        {
+          latitude: effectiveCoordinates?.lat,
+          longitude: effectiveCoordinates?.lon,
+          dateTimeOriginal: exif.parsed.dateTimeOriginal,
+        }
+      )
+    : null;
+
+  const air = isAtmosphericSky && radiometry
+    ? estimateAirQuality(radiometry.opticalDepth)
+    : null;
+
+  const observation = isAtmosphericSky && radiometry
+    ? analyzeObservationQuality(stats, exif, radiometry, sceneValidation)
+    : null;
+
   const validation = validateImageAuthenticity(exif, stats);
-  const referenceComparison = compareRadiometryWithGroundTruth(air.aqi, groundTruth);
+
+  const referenceComparison = isAtmosphericSky && air
+    ? compareRadiometryWithGroundTruth(air.aqi, groundTruth)
+    : {
+        available: false,
+        label: "Reference comparison unavailable",
+        deltaAqi: null,
+        absoluteError: null,
+        percentageError: null,
+        verdict: "Reference comparison unavailable",
+        isDivergent: false,
+        divergenceExplanation: undefined,
+      };
 
   function requestBrowserLocation(obsTimestamp?: string) {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -555,7 +579,7 @@ export default function RadiometryPage() {
                   <span>AQI estimation, PM2.5 proxy, optical depth τ, and independent corroboration are withheld because the uploaded image does not contain measurable atmospheric sky radiance.</span>
                 </div>
               </Panel>
-            ) : (
+            ) : air ? (
               <Panel className="aq-panel">
                 <div className="panel-heading">
                   <div>
@@ -594,7 +618,7 @@ export default function RadiometryPage() {
                   {air.advisory}
                 </div>
               </Panel>
-            )}
+            ) : null}
 
             {!sceneValidation.sceneValid ? (
               <Panel>
@@ -610,7 +634,7 @@ export default function RadiometryPage() {
                   <small>Physical radiometry requires unobstructed atmospheric solar scattering.</small>
                 </div>
               </Panel>
-            ) : (
+            ) : radiometry ? (
               <Panel>
                 <div className="panel-heading">
                   <div><span className="eyebrow">04 / PHYSICS</span><h2>Radiometry result.</h2></div>
@@ -639,7 +663,7 @@ export default function RadiometryPage() {
                   </small>
                 </div>
               </Panel>
-            )}
+            ) : null}
 
             {!sceneValidation.sceneValid ? (
               <Panel>
@@ -687,7 +711,7 @@ export default function RadiometryPage() {
                   </div>
                 </div>
               </Panel>
-            ) : (
+            ) : observation && air ? (
               <Panel>
                 <div className="panel-heading">
                   <div><span className="eyebrow">05 / TRUST</span><h2>Observation integrity.</h2></div>
@@ -734,7 +758,7 @@ export default function RadiometryPage() {
                   ))}
                 </div>
               </Panel>
-            )}
+            ) : null}
 
             {!sceneValidation.sceneValid ? (
               <Panel>
