@@ -2545,3 +2545,36 @@ textarea {
     font-size: 20px;
   }
 }
+
+/* Apple-style Leaflet Tooltips */
+.tropos-tooltip,
+.leaflet-tooltip.tropos-tooltip {
+  background: rgba(22, 22, 23, 0.88) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 8px !important;
+  font-family: var(--font-apple) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 4px 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.tropos-tooltip-highlight,
+.leaflet-tooltip.tropos-tooltip-highlight {
+  background: rgba(255, 45, 85, 0.92) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 8px !important;
+  font-family: var(--font-apple) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+  box-shadow: 0 6px 20px rgba(255, 45, 85, 0.4) !important;
+}
+
+.leaflet-tooltip::before {
+  display: none !important;
+}
+

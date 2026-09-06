@@ -101,23 +101,32 @@ export default function CorridorMap({
         container._leaflet_id = null;
       }
 
-      const delhiBounds = L.latLngBounds(
-        [28.30, 76.84],
-        [28.90, 77.60]
+      const corridorBounds = L.latLngBounds(
+        [27.5, 74.5],
+        [31.8, 78.5]
       );
 
+      const initialCenter: [number, number] = selectedStation
+        ? [selectedStation.lat, selectedStation.lng]
+        : [28.6139, 77.209];
+
       const map = L.map(container, {
-        center: [28.6139, 77.209],
-        zoom: 10,
-        minZoom: 10,
-        maxZoom: 16,
-        maxBounds: delhiBounds,
-        maxBoundsViscosity: 1.0,
+        center: initialCenter,
+        zoom: selectedStation ? 11 : 10,
+        minZoom: 6,
+        maxZoom: 18,
+        maxBounds: corridorBounds,
+        maxBoundsViscosity: 0.6,
         zoomControl: false,
         attributionControl: false,
       });
 
-      map.fitBounds(delhiBounds, { padding: [16, 16] });
+      if (selectedStation) {
+        map.setView([selectedStation.lat, selectedStation.lng], 11);
+      } else {
+        const delhiBounds = L.latLngBounds([28.30, 76.84], [28.90, 77.60]);
+        map.fitBounds(delhiBounds, { padding: [16, 16] });
+      }
 
       if (isCancelled) {
         map.remove();
@@ -255,22 +264,71 @@ export default function CorridorMap({
     if (candidates && candidates.length > 0) {
       candidates.forEach((c) => {
         try {
-          const m = leaflet.circleMarker([c.lat, c.lng], { radius: 6, color: '#2997ff', fillColor: '#2997ff', fillOpacity: 0.95 }).addTo(map);
+          const isHighlighted = highlightedSourceId === c.id;
+          const m = leaflet.circleMarker([c.lat, c.lng], {
+            radius: isHighlighted ? 9 : 6,
+            color: isHighlighted ? "#ff2d55" : "#2997ff",
+            fillColor: isHighlighted ? "#ff2d55" : "#2997ff",
+            fillOpacity: isHighlighted ? 1.0 : 0.9,
+            weight: isHighlighted ? 3 : 1.5,
+          }).addTo(map);
+
+          m.bindTooltip(`🏭 ${c.name}`, {
+            direction: "top",
+            offset: [0, -8],
+            className: isHighlighted ? "tropos-tooltip-highlight" : "tropos-tooltip",
+          });
+
+          if (isHighlighted) {
+            m.openTooltip();
+          }
+
           (map as any)._troposOverlayLayers.push(m);
         } catch {}
       });
     }
 
-    // Highlight probable source (if it matches a station id)
+    // Auto-fit map to fit receptor, plume, and candidate emitters so nothing is hidden off-screen
+    if ((particlePaths && particlePaths.length > 0) || (candidates && candidates.length > 0)) {
+      try {
+        const boundsPoints: [number, number][] = [];
+        if (selectedStation) {
+          boundsPoints.push([selectedStation.lat, selectedStation.lng]);
+        }
+        candidates?.forEach((c) => boundsPoints.push([c.lat, c.lng]));
+        particlePaths?.forEach((path) => {
+          const end = path[path.length - 1];
+          if (end) boundsPoints.push([end.lat, end.lng]);
+        });
+
+        if (boundsPoints.length >= 2) {
+          const bounds = leaflet.latLngBounds(boundsPoints);
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+        }
+      } catch {}
+    }
+
+    // Highlight and pan to selected candidate source
     if (highlightedSourceId) {
-      const st = stations.find((s) => s.id === highlightedSourceId);
-      if (st) {
+      const cand = candidates?.find((c) => c.id === highlightedSourceId);
+      if (cand) {
         try {
-          const m = leaflet.circleMarker([st.lat, st.lng], { radius: 8, color: '#ff2d55', fillColor: '#ff2d55', fillOpacity: 0.98 }).addTo(map);
-          (map as any)._troposOverlayLayers.push(m);
-          // pan a little towards source for emphasis
-          // map.panTo([st.lat, st.lng]);
+          map.flyTo([cand.lat, cand.lng], 13, { duration: 0.6 });
         } catch {}
+      } else {
+        const st = stations.find((s) => s.id === highlightedSourceId);
+        if (st) {
+          try {
+            const m = leaflet.circleMarker([st.lat, st.lng], {
+              radius: 9,
+              color: "#ff2d55",
+              fillColor: "#ff2d55",
+              fillOpacity: 0.98,
+              weight: 3,
+            }).addTo(map);
+            (map as any)._troposOverlayLayers.push(m);
+          } catch {}
+        }
       }
     }
 
