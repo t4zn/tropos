@@ -573,17 +573,17 @@ export function compareRadiometryWithGroundTruth(radiometryAqi: number, groundTr
 
 function syntheticVision(tau: number, aqi: number): VisionResult {
   const severe = tau > 1; const heavy = tau > .6; const moderate = tau > .35;
-  return { success: true, isSynthetic: true, hazeSeverity: severe ? "severe" : heavy ? "heavy" : moderate ? "moderate" : tau <= .15 ? "pristine" : "light", hazeDescription: severe ? "Severe particulate extinction is consistent with intense smoke or inversion smog." : moderate ? "Visible aerosol scattering is reducing sky clarity." : "Low aerosol loading with relatively clear sky contrast.", estimatedAodTau: Math.round(tau * 1000) / 1000, estimatedAqi: Math.min(500, Math.max(0, Math.round(aqi))), aqiCategory: aqi <= 50 ? "Good" : aqi <= 100 ? "Moderate" : aqi <= 150 ? "Unhealthy for Sensitive Groups" : aqi <= 200 ? "Unhealthy" : aqi <= 300 ? "Very Unhealthy" : "Hazardous", cloudCoveragePercent: severe ? 35 : 10, cloudType: severe ? "Overcast" : "Cirrus", aerosolVsCloudConfidence: .88, skyTurbidityRating: severe ? "extreme" : heavy ? "high" : "moderate", visualClarity: `Estimated horizontal optical depth τ = ${tau.toFixed(3)}`, radiometricCorroboration: "Synthetic analysis harmonized with the Beer-Lambert physical estimate.", fallbackReason: "Gemini API key not configured; using local demonstration analysis." };
+  return { success: true, isSynthetic: true, hazeSeverity: severe ? "severe" : heavy ? "heavy" : moderate ? "moderate" : tau <= .15 ? "pristine" : "light", hazeDescription: severe ? "Severe particulate extinction is consistent with intense smoke or inversion smog." : moderate ? "Visible aerosol scattering is reducing sky clarity." : "Low aerosol loading with relatively clear sky contrast.", estimatedAodTau: Math.round(tau * 1000) / 1000, estimatedAqi: Math.min(500, Math.max(0, Math.round(aqi))), aqiCategory: aqi <= 50 ? "Good" : aqi <= 100 ? "Moderate" : aqi <= 150 ? "Unhealthy for Sensitive Groups" : aqi <= 200 ? "Unhealthy" : aqi <= 300 ? "Very Unhealthy" : "Hazardous", cloudCoveragePercent: severe ? 35 : 10, cloudType: severe ? "Overcast" : "Cirrus", aerosolVsCloudConfidence: .88, skyTurbidityRating: severe ? "extreme" : heavy ? "high" : "moderate", visualClarity: `Estimated horizontal optical depth τ = ${tau.toFixed(3)}`, radiometricCorroboration: "Synthetic analysis harmonized with the Beer-Lambert physical estimate.", fallbackReason: "Google Gemma 4 API key not configured; using local demonstration analysis." };
 }
 
 async function imageToBase64(file: File) {
   const image = new Image(); const url = URL.createObjectURL(file); image.src = url;
-  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("Unable to encode image for Gemini.")); });
+  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("Unable to encode image for Gemma 4.")); });
   const canvas = document.createElement("canvas"); const scale = Math.min(1, 1024 / Math.max(image.naturalWidth, image.naturalHeight)); canvas.width = Math.round(image.naturalWidth * scale); canvas.height = Math.round(image.naturalHeight * scale); canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url);
   const dataUrl = canvas.toDataURL("image/jpeg", .85); return { mimeType: "image/jpeg", data: dataUrl.split(",")[1] };
 }
 
-export async function analyzeSkyHazeWithGemini(
+export async function analyzeSkyHazeWithGemma(
   file: File,
   radiometry: { opticalDepth: number; aqi: number },
   locationName?: string
@@ -591,7 +591,7 @@ export async function analyzeSkyHazeWithGemini(
   try {
     const image = await imageToBase64(file);
 
-    // Call secure server-side Gemini Vision API route
+    // Call secure server-side Gemma 4 Vision API route
     const response = await fetch("/api/radiometry/vision", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -613,7 +613,7 @@ export async function analyzeSkyHazeWithGemini(
     if (!res.success) {
       return {
         ...syntheticVision(radiometry.opticalDepth, radiometry.aqi),
-        fallbackReason: res.fallbackReason || "Gemini Vision key not configured",
+        fallbackReason: res.fallbackReason || "Google Gemma 4 Vision key not configured",
       };
     }
 
@@ -630,14 +630,17 @@ export async function analyzeSkyHazeWithGemini(
       aerosolVsCloudConfidence: res.aerosolVsCloudConfidence ?? 0.85,
       skyTurbidityRating: res.skyTurbidityRating || "moderate",
       visualClarity: res.visualClarity || "Visual clarity analyzed",
-      radiometricCorroboration: res.radiometricCorroboration || "Gemini visual analysis corroborates physical sensor.",
+      radiometricCorroboration: res.radiometricCorroboration || "Google Gemma 4 visual analysis corroborates physical sensor.",
       fallbackReason: undefined,
     };
   } catch (error) {
     return {
       ...syntheticVision(radiometry.opticalDepth, radiometry.aqi),
-      fallbackReason: error instanceof Error ? error.message : "Gemini vision unavailable.",
+      fallbackReason: error instanceof Error ? error.message : "Google Gemma 4 vision unavailable.",
     };
   }
 }
+
+export const analyzeSkyHazeWithGemini = analyzeSkyHazeWithGemma;
+
 

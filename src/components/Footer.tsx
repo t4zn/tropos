@@ -18,7 +18,7 @@ export default function Footer({ isDark }: FooterProps) {
     { label: "Attribution", href: "/attribution" },
     { label: "INSAT", href: "/insat" },
     { label: "Radiometry", href: "/radiometry" },
-    { label: "Federation", href: "/federation" },
+    { label: "Advisor", href: "/advisor" },
   ];
 
   return (
@@ -49,7 +49,7 @@ export default function Footer({ isDark }: FooterProps) {
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <Image
             src="/logo.png"
-            alt="Tropos"
+            alt="Exur"
             width={16}
             height={16}
             style={{
@@ -66,7 +66,7 @@ export default function Footer({ isDark }: FooterProps) {
               letterSpacing: "-0.2px",
             }}
           >
-            Tropos
+            Exur
           </span>
           <span style={{ fontSize: "11px", opacity: 0.7 }}>
             &copy; {new Date().getFullYear()}
@@ -114,7 +114,7 @@ export default function Footer({ isDark }: FooterProps) {
             letterSpacing: "0.2px",
           }}
         >
-          ISRO 74&deg;E &bull; Google Earth Engine
+          Hacktoberfest Indore &bull; PyData &bull; Google Gemma 4 &bull; ISRO 74&deg;E
         </div>
       </div>
     </footer>

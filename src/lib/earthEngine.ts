@@ -37,19 +37,6 @@ export interface GeeHarmonizationData {
   gridCells: GeeGridCell[];
 }
 
-export interface GeeStateAudit {
-  stateCode: "DEL" | "HAR" | "UP" | "PUN";
-  stateName: string;
-  dataset: string;
-  zonalMeanAai: number;
-  transboundaryFluxTonsDay: number;
-  pblCeilingM: number;
-  orbitalConcordance: number;
-  tamperProofHash: string;
-  geeReductionMethod: "ee.Reducer.mean()" | "ee.Reducer.sum()";
-  status: "COMPLIANT_ORBITAL_VERIFIED" | "ELEVATED_TRANSIT_FLUX" | "CRITICAL_AIRSHED_ACCUMULATION";
-}
-
 // ─── HIGH-RESOLUTION SENTINEL-5P / MODIS GEE CELLS OVER DELHI-NCR ─────────────
 const DELHI_NCR_GEE_CELLS: GeeGridCell[] = [
   {
@@ -205,65 +192,4 @@ export function getGeeOrbitalAnchorForCoordinate(
     lastOverpass: nearest.timestamp,
     source: "Google Earth Engine (GEE) Sentinel-5P / MODIS MAIAC 1km",
   };
-}
-
-/**
- * Returns neutral Google Earth Engine Zonal Reduction audit for sovereign state nodes
- * Used by /federation to verify inter-state compliance with tamper-proof orbital rasters.
- */
-export function getGeeStateAudit(stateCode: "DEL" | "HAR" | "UP" | "PUN"): GeeStateAudit {
-  switch (stateCode) {
-    case "DEL":
-      return {
-        stateCode: "DEL",
-        stateName: "Delhi NCT",
-        dataset: "COPERNICUS/S5P/NRTI/L3_AER_AI [ee.Reducer.mean()]",
-        zonalMeanAai: 3.42,
-        transboundaryFluxTonsDay: 485.2,
-        pblCeilingM: 135,
-        orbitalConcordance: 96.4,
-        tamperProofHash: "0xgee_del_7b89f0a1c2d3e4f5a6b7c8d9e0f1a2b3",
-        geeReductionMethod: "ee.Reducer.mean()",
-        status: "CRITICAL_AIRSHED_ACCUMULATION",
-      };
-    case "HAR":
-      return {
-        stateCode: "HAR",
-        stateName: "Haryana",
-        dataset: "COPERNICUS/S5P/NRTI/L3_AER_AI [ee.Reducer.mean()]",
-        zonalMeanAai: 2.88,
-        transboundaryFluxTonsDay: 320.6,
-        pblCeilingM: 155,
-        orbitalConcordance: 94.8,
-        tamperProofHash: "0xgee_har_4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d",
-        geeReductionMethod: "ee.Reducer.mean()",
-        status: "ELEVATED_TRANSIT_FLUX",
-      };
-    case "UP":
-      return {
-        stateCode: "UP",
-        stateName: "Uttar Pradesh",
-        dataset: "COPERNICUS/S5P/NRTI/L3_AER_AI [ee.Reducer.mean()]",
-        zonalMeanAai: 3.15,
-        transboundaryFluxTonsDay: 412.0,
-        pblCeilingM: 140,
-        orbitalConcordance: 92.1,
-        tamperProofHash: "0xgee_up_1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b",
-        geeReductionMethod: "ee.Reducer.mean()",
-        status: "ELEVATED_TRANSIT_FLUX",
-      };
-    case "PUN":
-      return {
-        stateCode: "PUN",
-        stateName: "Punjab",
-        dataset: "COPERNICUS/S5P/NRTI/L3_AER_AI [ee.Reducer.mean()]",
-        zonalMeanAai: 2.92,
-        transboundaryFluxTonsDay: 290.4,
-        pblCeilingM: 165,
-        orbitalConcordance: 95.7,
-        tamperProofHash: "0xgee_pun_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d",
-        geeReductionMethod: "ee.Reducer.mean()",
-        status: "COMPLIANT_ORBITAL_VERIFIED",
-      };
-  }
 }

@@ -66,8 +66,7 @@ export default function Navigation() {
     { label: "Attribution", href: "/attribution" },
     { label: "INSAT", href: "/insat" },
     { label: "Radiometry", href: "/radiometry" },
-    { label: "Federation", href: "/federation" },
-    { label: "✦ AI Advisor", href: "/advisor" },
+    { label: "Advisor", href: "/advisor" },
   ];
 
   return (
@@ -103,7 +102,7 @@ export default function Navigation() {
         >
           <Image
             src="/logo.png"
-            alt="Tropos Logo"
+            alt="Exur Logo"
             width={22}
             height={22}
             style={{
@@ -121,7 +120,7 @@ export default function Navigation() {
               transition: "color 0.25s ease",
             }}
           >
-            Tropos
+            Exur
           </span>
         </Link>
 
@@ -143,8 +142,38 @@ export default function Navigation() {
           })}
         </nav>
 
-        {/* Right on PC: Spacer for exact visual balance */}
-        <div className="nav-spacer desktop-only-nav" style={{ width: "68px", zIndex: 1 }} aria-hidden="true" />
+        {/* Right on PC: Official Gemma 4 Badge */}
+        <div
+          className="desktop-only-nav"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "13px",
+            fontWeight: 650,
+            color: isOverDark ? "rgba(255, 255, 255, 0.95)" : "var(--color-ink)",
+            letterSpacing: "-0.2px",
+            zIndex: 2,
+          }}
+        >
+          <Image
+            src="/gemma-icon.png"
+            alt="Google Gemma 4"
+            width={26}
+            height={26}
+            style={{
+              width: "26px",
+              height: "26px",
+              objectFit: "contain",
+              display: "block",
+              filter: isOverDark
+                ? "brightness(0.62) contrast(1.25) saturate(1.15)"
+                : "brightness(0.52) contrast(1.3) saturate(1.2)",
+              transition: "filter 0.25s ease",
+            }}
+          />
+          <span>Gemma 4</span>
+        </div>
 
         {/* Right on Mobile: Apple Minimalist Morphing Hamburger Button */}
         <button

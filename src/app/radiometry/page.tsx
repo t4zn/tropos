@@ -376,7 +376,7 @@ export default function RadiometryPage() {
   return <div className="radiometry-page">
     <Navigation />
     <main>
-      <section className="product-tile-parchment radiometry-intro"><div className="container-wide"><span className="radiometry-kicker">CITIZEN SENSING &bull; INNOVATION 03</span><h1 className="hero-display">Camera Radiometry.</h1><p className="lead">Turn an ordinary sky photograph into a calibrated atmospheric observation.</p><p className="radiometry-intro-note">All core measurements run in your browser. Your image stays on this device while Tropos derives relative scene radiance, aerosol optical depth, and an AQI proxy.</p></div></section>
+      <section className="product-tile-parchment radiometry-intro"><div className="container-wide"><span className="radiometry-kicker">CITIZEN SENSING &bull; INNOVATION 03</span><h1 className="hero-display">Camera Radiometry.</h1><p className="lead">Turn an ordinary sky photograph into a calibrated atmospheric observation.</p><p className="radiometry-intro-note">All core measurements run in your browser. Your image stays on this device while Exur derives relative scene radiance, aerosol optical depth, and an AQI proxy.</p></div></section>
       <section className="radiometry-workspace"><div className="container-wide">
         <div className="radiometry-toolbar"><div><span className="eyebrow">FIELD INSTRUMENT</span><strong>Sky observation console</strong></div><button className="button-secondary-pill" onClick={() => setShowCalibration(true)}>Calibrate I<sub>0</sub> <span aria-hidden="true">&rarr;</span></button></div>
         <div className="radiometry-presets"><span className="eyebrow">DEMO OBSERVATIONS</span><div>{PRESET_SCENARIOS.map((preset) => <button key={preset.id} onClick={() => selectPreset(preset)}>{preset.title}</button>)}</div></div>
@@ -803,7 +803,7 @@ export default function RadiometryPage() {
                   </div>
                 </div>
                 <div className="corroboration-block">
-                  <span className="corroboration-label">Gemini vision</span>
+                  <span className="corroboration-label">Gemma 4 vision</span>
                   <p>Analysis suspended — non-atmospheric image rejected.</p>
                 </div>
                 <div className="corroboration-block">
@@ -821,14 +821,14 @@ export default function RadiometryPage() {
                   <div><span className="eyebrow">06 / CORROBORATION</span><h2>Independent signals.</h2></div>
                 </div>
                 <div className="corroboration-block">
-                  <span className="corroboration-label">Gemini vision</span>
+                  <span className="corroboration-label">Gemma 4 vision</span>
                   {visionLoading ? (
                     <p>Analyzing sky appearance...</p>
                   ) : vision ? (
                     <>
                       <strong>{vision.hazeSeverity} haze · {vision.aqiCategory}</strong>
                       <p>{vision.hazeDescription}</p>
-                      <small>{vision.isSynthetic ? "Local fallback analysis" : "Gemini 1.5 Flash Vision"} · confidence {(vision.aerosolVsCloudConfidence * 100).toFixed(0)}%</small>
+                      <small>{vision.isSynthetic ? "Local fallback analysis" : "Google Gemma 4 Vision"} · confidence {(vision.aerosolVsCloudConfidence * 100).toFixed(0)}%</small>
                       {vision.fallbackReason && (
                         <div style={{ fontSize: "11px", color: "#8e8e93", marginTop: "4px" }}>
                           ℹ️ {vision.fallbackReason}

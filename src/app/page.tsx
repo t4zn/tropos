@@ -263,7 +263,7 @@ export default function HomePage() {
         </section>
 
         {/* =================================================================
-            PARCHMENT TILE: Inter-State Federation & Climate Resilience
+            PARCHMENT TILE: Intelligent Atmospheric Advisor
             ================================================================= */}
         <section className="product-tile-parchment">
           <div className="container" style={{ textAlign: "center" }}>
@@ -277,11 +277,11 @@ export default function HomePage() {
                 display: "inline-block",
               }}
             >
-              Interoperability & Governance
+              Intelligent Air Guidance
             </span>
 
             <h2 className="display-lg" style={{ marginBottom: "var(--spacing-sm)" }}>
-              Sovereign Federation.
+              Exur Advisor.
             </h2>
 
             <p
@@ -292,12 +292,12 @@ export default function HomePage() {
                 color: "var(--color-ink-muted-48)",
               }}
             >
-              States share mathematical model weights and zero-knowledge compliance proofs &mdash;
-              never raw farm- or factory-level data. Eliminating the political blame game by design.
+              Consult specialized atmospheric intelligence for inter-district relocation,
+              elderly asthma defense, and hyper-local aerosol dispersion across Delhi-NCR.
             </p>
 
-            <Link href="/federation" className="button-primary">
-              Open Governance Console
+            <Link href="/advisor" className="button-primary">
+              Consult Atmospheric Advisor
             </Link>
           </div>
         </section>

@@ -1,6 +1,6 @@
 # INNOVATION 03: Smartphone Camera Auto-Exposure Radiometry & Anti-Spoofing Citizen Ground Sensing
 > **VAYU Technical Whitepaper Series &bull; Clean Air & Climate Resilience**  
-> **Google Developer Groups (GDG) Sustainability Hackathon**  
+> **Google Gemma 4 Sustainability Hackathon**  
 > **Primary Technology Stack:** Gemini Nano / MediaPipe (On-Device Vision), Google Solar API, TensorFlow Federated (TFF), Web EXIF Parser, Next.js 16
 
 ---
@@ -305,9 +305,9 @@ To implement this feature seamlessly into the VAYU architecture:
 
 ---
 
-## 7. The Winning GDG Pitch Strategy for Innovation 03
+## 7. The Winning Gemma 4 Hackathon Pitch Strategy for Innovation 03
 
-When presenting Innovation 03 to the GDG judges, follow this **45-second script**:
+When presenting Innovation 03 to the hackathon judges, follow this **45-second script**:
 
 > **(0:00)** *"Judges, let's talk about citizen science. Every hackathon team says: 'We will build IoT sensor boxes.' But a single sensor costs ₹5,000. In Delhi-NCR's winter fog, laser chambers clog within 60 days, and moisture causes sensors to overestimate pollution by 300%. It is an economic and physical failure."*
 >

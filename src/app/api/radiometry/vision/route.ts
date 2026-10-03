@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
 /**
- * Gemini Vision Air Quality & Sky Haze Analysis API
+ * Google Gemma 4 Vision Air Quality & Sky Haze Analysis API
  * 
- * Uses Google Gemini 1.5 Flash multimodal vision model to independently analyze
+ * Uses Google Gemma 4 multimodal vision model to independently analyze
  * outdoor sky/horizon photos for particulate haze, cloud vs aerosol classification,
  * landmark extinction, and visual AQI.
  * 
- * Key stored securely in server-side process.env.GEMINI_API_KEY.
+ * Key stored securely in server-side process.env.GEMMA_API_KEY or process.env.GEMINI_API_KEY.
  */
 
 export async function POST(request: Request) {
@@ -23,13 +23,13 @@ export async function POST(request: Request) {
     }
 
     const groqKey = process.env.GROQ_API_KEY;
-    const geminiKey = process.env.GEMINI_API_KEY;
+    const gemmaKey = process.env.GEMMA_API_KEY || process.env.GEMINI_API_KEY;
 
-    if (!groqKey && !geminiKey) {
+    if (!groqKey && !gemmaKey) {
       return NextResponse.json({
         success: false,
         isConfigured: false,
-        fallbackReason: "Neither GROQ_API_KEY nor GEMINI_API_KEY is set in .env.local. Add one to enable live AI vision analysis.",
+        fallbackReason: "Neither GROQ_API_KEY nor GEMMA_API_KEY is set in .env.local. Add one to enable live AI vision analysis.",
       });
     }
 
@@ -118,9 +118,9 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
       }
     }
 
-    // 2. Fall back to Google Gemini if Groq wasn't configured or failed
-    if (!parsed && geminiKey) {
-      const apiKey = geminiKey;
+    // 2. Fall back to Google Gemma 4 if Groq wasn't configured or failed
+    if (!parsed && gemmaKey) {
+      const apiKey = gemmaKey;
       const isOAuthBearer = apiKey.startsWith("ya29.");
       const authHeaders: Record<string, string> = {
         "Content-Type": "application/json",
@@ -132,8 +132,8 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
         authHeaders["x-goog-api-key"] = apiKey;
       }
 
-      // Dynamically detect which Gemini model is available for this credential
-      let modelName = "gemini-3.6-flash";
+      // Prioritize Google Gemma 4 open weights models
+      let modelName = "gemma-4-26b-a4b-it";
       try {
         const listUrl = isOAuthBearer
           ? "https://generativelanguage.googleapis.com/v1beta/models"
@@ -148,13 +148,10 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
           const listData = await listRes.json();
           const models = (listData.models || []) as Array<{ name: string; supportedGenerationMethods?: string[] }>;
           const candidates = [
-            "models/gemini-3.6-flash",
-            "models/gemini-3.5-flash",
+            "models/gemma-4-26b-a4b-it",
+            "models/gemma-4-31b-it",
+            "models/gemini-2.5-flash",
             "models/gemini-flash-latest",
-            "models/gemini-2.5-flash-lite",
-            "models/gemini-2.0-flash",
-            "models/gemini-1.5-flash",
-            "models/gemini-1.5-flash-latest",
           ];
           const match = candidates.find((c) =>
             models.some((m) => m.name === c && m.supportedGenerationMethods?.includes("generateContent"))
@@ -169,7 +166,7 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
           }
         }
       } catch (e) {
-        console.error("[Gemini listModels exception]:", e);
+        console.error("[Gemma listModels exception]:", e);
       }
 
       const buildUrl = (model: string) =>
@@ -177,7 +174,7 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
           ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
           : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-      const geminiPayload = {
+      const gemmaPayload = {
         contents: [
           {
             parts: [
@@ -194,23 +191,23 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0.15,
-          maxOutputTokens: 800,
+          maxOutputTokens: 1200,
         },
       };
 
       let res = await fetch(buildUrl(modelName), {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify(geminiPayload),
+        body: JSON.stringify(gemmaPayload),
         signal: AbortSignal.timeout(15000),
       });
 
-      // Fallback attempt with gemini-flash-latest if 404
-      if (res.status === 404 && modelName !== "gemini-flash-latest") {
-        res = await fetch(buildUrl("gemini-flash-latest"), {
+      // Fallback attempt with gemma-4-31b-it if 404
+      if (res.status === 404 && modelName !== "gemma-4-31b-it") {
+        res = await fetch(buildUrl("gemma-4-31b-it"), {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify(geminiPayload),
+          body: JSON.stringify(gemmaPayload),
           signal: AbortSignal.timeout(15000),
         });
       }
@@ -218,15 +215,21 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
       if (res.ok) {
         const data = await res.json();
         const candidate = data.candidates?.[0];
-        const textPart = candidate?.content?.parts?.[0]?.text;
+        const parts = candidate?.content?.parts || [];
+        const nonThought = parts.filter((p: any) => !p.thought);
+        const textPart = (nonThought.length > 0 ? nonThought : parts)
+          .map((p: any) => p.text || "")
+          .join("")
+          .trim();
+
         if (textPart) {
           const cleanJson = textPart.replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim();
           parsed = JSON.parse(cleanJson);
-          providerUsed = `Gemini (${modelName})`;
+          providerUsed = `Google Gemma 4 (${modelName})`;
         }
       } else {
         const errText = await res.text().catch(() => "");
-        console.error("[Gemini Vision API Error]:", res.status, errText);
+        console.error("[Gemma Vision API Error]:", res.status, errText);
       }
     }
 
@@ -252,14 +255,14 @@ Return ONLY valid JSON with no markdown backticks, matching this exact structure
       aerosolVsCloudConfidence: Math.min(0.99, Math.max(0.5, Number(parsed.aerosolVsCloudConfidence) || 0.85)),
       skyTurbidityRating: parsed.skyTurbidityRating || "moderate",
       visualClarity: parsed.visualClarity || "Visibility consistent with atmospheric baseline",
-      radiometricCorroboration: parsed.radiometricCorroboration || "Gemini visual analysis corroborates physical sensor.",
+      radiometricCorroboration: parsed.radiometricCorroboration || "Google Gemma 4 visual analysis corroborates physical sensor.",
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Internal error";
-    console.error("[Gemini Vision Exception]:", msg);
+    console.error("[Gemma Vision Exception]:", msg);
     return NextResponse.json({
       success: false,
-      isConfigured: Boolean(process.env.GEMINI_API_KEY),
+      isConfigured: Boolean(process.env.GEMMA_API_KEY || process.env.GEMINI_API_KEY),
       fallbackReason: msg,
     });
   }

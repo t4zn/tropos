@@ -1,12 +1,12 @@
-# VAYU — Step-by-Step Implementation Specification
+# EXUR — Step-by-Step Implementation Specification
 > **Clean Air & Climate Resilience Platform**  
-> Built for the GDG Sustainability Hackathon | $0 Cloud Budget | Apple Design System
+> Built for Hacktoberfest Hack Day Indore (PyData Indore x MLH) | Challenge 01: Best Use of Gemma 4 | Apple Design System
 
 ---
 
 ## System Vision & Design Architecture
 
-Vayu is a federated, hyper-local climate action platform engineered for Indian economic corridors (Indo-Gangetic Plain, Delhi-NCR, Mumbai-Pune). It combines citizen sensing, ISRO geostationary satellite telemetry, and inverse atmospheric physics into an actionable enforcement and forecasting hub.
+Exur is a hyper-local atmospheric intelligence platform engineered for Indian economic corridors (Indo-Gangetic Plain, Delhi-NCR, Indore). It combines citizen sensing, ISRO geostationary satellite telemetry, inverse atmospheric physics, and Google Gemma 4 into an actionable enforcement and forecasting hub.
 
 ### Visual Design Integrity (`DESIGN.md` — Apple Design System)
 The entire application strictly follows the Apple Design System specification:
@@ -47,7 +47,7 @@ Follow this sequential checklist to implement, verify, and demo every feature of
 │  STEP 7: Innovation 3 — Smartphone Camera Exposure Radiometry Analyzer │
 │  STEP 8: Sovereign Federated Action Console & GRAP Trigger Hub         │
 │  STEP 9: Performance Audit, $0 Cost Verification & Build Testing       │
-│  STEP 10: 2-Minute GDG Judge Pitch Script & Live Walkthrough           │
+│  STEP 10: 2-Minute Gemma 4 Hackathon Pitch Script & Live Walkthrough   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -83,7 +83,7 @@ Follow this sequential checklist to implement, verify, and demo every feature of
 * **Implementation Checklist:**
   - [x] **Single Unified Nav:** Clean 52px frosted bar (`rgba(255, 255, 255, 0.85)` with `backdrop-filter: blur(20px)` and subtle `1px solid rgba(0,0,0,0.08)` hairline border).
   - [x] **Left Cluster:** Vayu atmospheric ring glyph + "Vayu" branding + "Indo-Gangetic Corridor" tag.
-  - [x] **Center Links:** Quiet navigation links (`Overview`, `Corridor Map`, `INSAT-3DR`, `Attribution`, `Radiometry`, `Federation`) with active scroll spy.
+  - [x] **Center Links:** Quiet navigation links (`Overview`, `Corridor Map`, `INSAT-3DR`, `Attribution`, `Radiometry`, `AI Advisor`) with active scroll spy.
   - [x] **Right Cluster:** Live green telemetry status (`● ISRO 74°E`) + Action Blue pill CTA (`Live Air-Shed`).
 
 ---
@@ -166,19 +166,19 @@ Follow this sequential checklist to implement, verify, and demo every feature of
 
 ---
 
-### STEP 10: 2-Minute GDG Judge Pitch Script & Live Walkthrough
+### STEP 10: 2-Minute Gemma 4 Hackathon Pitch Script & Live Walkthrough
 
 * **0:00 – 0:30 (The Problem & The Hook):**
   > *"Every team today is showing you an air quality map with colored pins. But India has had CAAQMS stations and NASA fire maps for 10 years. Why are citizens in Delhi-NCR still breathing severe-plus air? Because of two fatal blind spots: Satellites pass at 1:30 PM while the real burning happens at dusk, and states refuse to share raw data due to political liability."*
 
 * **0:30 – 0:55 (Innovation 1 — ISRO INSAT-3DR 15-Min Cadence):**
-  > *"Meet Vayu. We built an atmospheric intelligence platform using Apple's minimal design principles. Notice our satellite scanner: At 1:30 PM, NASA FIRMS shows zero fires. But toggle to 5:45 PM—ISRO's INSAT-3DR geostationary satellite scans every 15 minutes and catches a 420-acre twilight burn event that polar satellites completely miss."*
+  > *"Meet Exur. We built an atmospheric intelligence platform using Apple's minimal design principles. Notice our satellite scanner: At 1:30 PM, NASA FIRMS shows zero fires. But toggle to 5:45 PM—ISRO's INSAT-3DR geostationary satellite scans every 15 minutes and catches a 420-acre twilight burn event that polar satellites completely miss."*
 
 * **0:55 – 1:25 (Innovation 2 — Inverse Ray-Tracing):**
-  > *"When a hotspot spikes, other dashboards simply say 'air is red.' Vayu runs reverse Lagrangian wind dispersion physics in the browser. Watch this: we click the Mundka hotspot, and Vayu ray-traces 2.4 km upwind to identify the exact industrial foundry cluster responsible with 91% confidence."*
+  > *"When a hotspot spikes, other dashboards simply say 'air is red.' Exur runs reverse Lagrangian wind dispersion physics in the browser. Watch this: we click the Mundka hotspot, and Exur ray-traces 2.4 km upwind to identify the exact industrial foundry cluster responsible with 91% confidence."*
 
 * **1:25 – 1:45 (Innovation 3 — Smartphone Radiometry):**
   > *"How do citizens participate without buying ₹5,000 sensors? We extract raw camera Exposure Values (EV) from standard smartphone photos. The browser computes optical depth directly on-device with zero paid cloud vision APIs."*
 
-* **1:45 – 2:00 (The Close — Sovereign Federation):**
-  > *"Finally, Vayu respects state data sovereignty. Delhi, Haryana, and UP exchange zero-knowledge compliance proofs, not political blame. With a single click, we dispatch municipal anti-smog guns and issue corridor advisories. All built on open data, running at literally zero dollars per city."*
+* **1:45 – 2:00 (The Close — Exur Advisor & Actionable Intelligence with Gemma 4):**
+  > *"Finally, Exur provides instant actionable intelligence for citizens and administrators. Our localized advisor powered by Google Gemma 4 answers complex relocation and health defense queries, analyzing aerosol trajectories in real time. All built on open data, running at literally zero dollars per city."*

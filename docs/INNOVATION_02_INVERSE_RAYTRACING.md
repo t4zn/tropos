@@ -1,6 +1,6 @@
 # INNOVATION 02: Inverse Lagrangian Atmospheric Dispersion & Real-Time Source Attribution Engine
 > **VAYU Technical Whitepaper Series &bull; Clean Air & Climate Resilience**  
-> **Google Developer Groups (GDG) Sustainability Hackathon**  
+> **Google Gemma 4 Sustainability Hackathon**  
 > **Primary Technology Stack:** Google Maps Platform WebGL, Vertex AI (Physics-Informed Neural Networks), Gemini 1.5 Pro, Open-Meteo Atmospheric Boundary Data, Next.js 16
 
 ---
@@ -290,9 +290,9 @@ To implement this feature seamlessly into the VAYU architecture:
 
 ---
 
-## 7. The Winning GDG Pitch Strategy for Innovation 02
+## 7. The Winning Gemma 4 Hackathon Pitch Strategy for Innovation 02
 
-When presenting Innovation 02 to the GDG judges, follow this **45-second script**:
+When presenting Innovation 02 to the hackathon judges, follow this **45-second script**:
 
 > **(0:00)** *"Judges, let me show you what happens when an air quality monitoring station spikes to 490 µg/m³. Other platforms show a red dot and say 'wear a mask.' But a city commissioner told us: 'Telling me the air is red is useless. Tell me who emitted it so I can send the enforcement squad!'"*
 >

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {
   getGeeHarmonizationData,
   getGeeOrbitalAnchorForCoordinate,
-  getGeeStateAudit,
 } from "@/lib/earthEngine";
 
 export async function GET(request: Request) {
@@ -14,12 +13,6 @@ export async function GET(request: Request) {
       const lat = parseFloat(searchParams.get("lat") || "28.6139");
       const lng = parseFloat(searchParams.get("lng") || "77.2090");
       const data = getGeeOrbitalAnchorForCoordinate(lat, lng);
-      return NextResponse.json({ success: true, data });
-    }
-
-    if (type === "federation") {
-      const state = (searchParams.get("state") || "DEL").toUpperCase() as "DEL" | "HAR" | "UP" | "PUN";
-      const data = getGeeStateAudit(state);
       return NextResponse.json({ success: true, data });
     }
 

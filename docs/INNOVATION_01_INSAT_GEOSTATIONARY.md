@@ -1,6 +1,6 @@
 # INNOVATION 01: ISRO INSAT-3DR 15-Minute Geostationary Atmospheric Telemetry & The Twilight Evasion Scanner
 > **VAYU Technical Whitepaper Series &bull; Clean Air & Climate Resilience**  
-> **Google Developer Groups (GDG) Sustainability Hackathon**  
+> **Google Gemma 4 Sustainability Hackathon**  
 > **Primary Technology Stack:** ISRO MOSDAC Open Data, Google Earth Engine (GEE), Gemini 1.5 Flash, BigQuery GIS, Next.js 16
 
 ---
@@ -300,13 +300,13 @@ To implement this feature seamlessly into the VAYU architecture:
    * Integrate the timeline scrubber in [`src/app/insat/page.tsx`](file:///Users/mac/Documents/vayu/src/app/insat/page.tsx).
    * Ensure that sliding to `17:45 (5:45 PM)` immediately triggers the high-contrast **Twilight Evasion Alert** state.
 4. **Step 4: Connect with Municipal Alert Triggers**
-   * When an evasion event is detected at 5:45 PM, auto-generate the downstream action trigger in [`src/app/federation/page.tsx`](file:///Users/mac/Documents/vayu/src/app/federation/page.tsx) to notify downstream municipal control rooms in Delhi-NCR before the smoke arrives at 9:00 PM.
+   * When an evasion event is detected at 5:45 PM, auto-generate the downstream action trigger to notify downstream municipal control rooms in Delhi-NCR before the smoke arrives at 9:00 PM.
 
 ---
 
-## 7. The Winning GDG Pitch Strategy for Innovation 01
+## 7. The Winning Gemma 4 Hackathon Pitch Strategy for Innovation 01
 
-When presenting Innovation 01 to the GDG judges, follow this **45-second script**:
+When presenting Innovation 01 to the hackathon judges, follow this **45-second script**:
 
 > **(0:00)** *"Judges, every other air platform here today uses NASA FIRMS fire alerts. Here is why that fails: NASA's satellites only pass India around 1:30 PM. Stubble burning farmers and unauthorized smelters know this. They light their fires at 5:30 PM, right as the sun sets and satellites vanish."*
 >

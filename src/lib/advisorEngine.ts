@@ -1,5 +1,5 @@
 /**
- * Tropos AI Atmospheric & Health Intelligence Engine
+ * Exur Atmospheric & Health Intelligence Engine
  * 
  * Deeply grounded reasoning engine that translates complex meteorological,
  * satellite AOD, industrial emission registries, and dispersion models
@@ -196,7 +196,7 @@ function generateIndoreToDelhiAsthmaResponse(): string {
   const newGgn = NCR_SECTOR_INTELLIGENCE["new-gurugram-aravalli"];
 
   return `### ⚠️ Executive Medical-Environmental Verdict
-**Transitioning an elderly parent with chronic asthma from Indore (Vijay Nagar / Scheme 78) to Delhi NCR represents a serious respiratory risk** that demands strict geographic planning, hospital proximity, and continuous indoor protection.
+**Transitioning an elderly parent with chronic asthma from Indore (Walkover LIC Tower / Scheme 78 / Vijay Nagar) to Delhi NCR represents a serious respiratory risk** that demands strict microclimate planning, hospital proximity, and continuous indoor protection.
 
 Indore is India's cleanest city with an annual PM2.5 baseline of **~38 µg/m³ (AQI ~78)**. In contrast, the general Delhi-NCR airshed averages **~185 µg/m³ (AQI ~235)** and experiences catastrophic winter inversions exceeding **450–700 µg/m³**.
 
@@ -283,7 +283,7 @@ Hyperlocal hotspots like **Anand Vihar**, **Mundka**, and **Ghazipur** consisten
    * During winter months, boundary layer height collapses to **120–180 meters** (compared to >1,500m in summer).
    * Low wind speeds (<5 km/h) create ground-level atmospheric stagnation, trapping toxic plumes within a 2-3 km radius.
 
-3. **Tropos Sensor Verification:**
+3. **Exur Sensor Verification:**
    * Real-time monitoring shows localized PM2.5 concentrations in these sectors are **2.5x to 4x higher** than southern Aravalli ridge zones.`;
 }
 
@@ -304,7 +304,7 @@ When living in or visiting high-aerosol corridors like Delhi-NCR, indoor air def
 }
 
 function generateGeneralAtmosphericResponse(query: string): string {
-  return `### 🌍 Tropos Atmospheric Citizen Advisor
+  return `### 🌍 Exur Atmospheric Citizen Advisor
 
 I analyze regional satellite data from **ISRO INSAT-3DS**, ground observations from **CPCB stations**, and meteorological trajectory models across the Indo-Gangetic Corridor to provide plain-language, actionable answers.
 

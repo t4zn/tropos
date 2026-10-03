@@ -17,8 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tropos — Atmospheric Intelligence & Climate Action",
-  description: "A federated, hyper-local climate action platform fusing ISRO geostationary telemetry with edge citizen radiometry.",
+  title: "Exur — Atmospheric Intelligence & Climate Action",
+  description: "A hyper-local atmospheric intelligence platform fusing ISRO geostationary telemetry with edge citizen radiometry and Google Gemma 4.",
 };
 
 import FloatingAdvisor from "@/components/FloatingAdvisor";

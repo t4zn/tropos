@@ -1,5 +1,5 @@
-// Tropos Atmospheric Data Engine — Indo-Gangetic Economic Corridor
-// Built for GDG Hackathon: Zero-Cost Scientific Data Model
+// Exur Atmospheric Data Engine — Indo-Gangetic Economic Corridor
+// Built for Google Gemma 4 Hackathon: Zero-Cost Scientific Data Model
 
 export interface GeographicCoordinate {
   lat: number;
