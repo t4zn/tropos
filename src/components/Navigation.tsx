@@ -7,8 +7,8 @@ import { usePathname } from "next/navigation";
 
 export default function Navigation() {
   const pathname = usePathname();
-  const isInsatPage = pathname === "/insat";
-  const [isOverDark, setIsOverDark] = useState<boolean>(isInsatPage);
+  const isDarkPage = pathname === "/insat" || pathname === "/advisor";
+  const [isOverDark, setIsOverDark] = useState<boolean>(isDarkPage);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Close mobile menu whenever the route changes
@@ -18,7 +18,7 @@ export default function Navigation() {
 
   useEffect(() => {
     // Synchronize html and body backgrounds for elastic overscroll / rubber-banding
-    if (isInsatPage) {
+    if (isDarkPage) {
       setIsOverDark(true);
       document.documentElement.style.backgroundColor = "#161617";
       document.body.style.backgroundColor = "#161617";
@@ -59,7 +59,7 @@ export default function Navigation() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isInsatPage]);
+  }, [isDarkPage]);
 
   const navItems = [
     { label: "Corridor", href: "/corridor" },
@@ -67,6 +67,7 @@ export default function Navigation() {
     { label: "INSAT", href: "/insat" },
     { label: "Radiometry", href: "/radiometry" },
     { label: "Federation", href: "/federation" },
+    { label: "✦ AI Advisor", href: "/advisor" },
   ];
 
   return (

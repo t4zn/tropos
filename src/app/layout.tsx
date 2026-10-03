@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   description: "A federated, hyper-local climate action platform fusing ISRO geostationary telemetry with edge citizen radiometry.",
 };
 
+import FloatingAdvisor from "@/components/FloatingAdvisor";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,7 +30,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <FloatingAdvisor />
+      </body>
     </html>
   );
 }
